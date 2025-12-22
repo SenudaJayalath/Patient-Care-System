@@ -1,0 +1,178 @@
+service: doctor-visit-logger
+
+custom:
+  doctorsTable: ${self:service}-doctors-${self:provider.stage}
+  patientsTable: ${self:service}-patients-${self:provider.stage}
+  visitsTable: ${self:service}-visits-${self:provider.stage}
+  doctorItemsTable: ${self:service}-doctor-items-${self:provider.stage}
+  serverless-offline:
+    httpPort: 4000
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  apiGateway:
+    shouldStartNameWithService: true
+    restApiId:
+      Ref: ApiGatewayRestApi
+    restApiRootResourceId:
+      Fn::GetAtt:
+        - ApiGatewayRestApi
+        - RootResourceId
+  environment:
+    DYNAMODB_DOCTORS_TABLE: ${self:custom.doctorsTable}
+    DYNAMODB_PATIENTS_TABLE: ${self:custom.patientsTable}
+    DYNAMODB_VISITS_TABLE: ${self:custom.visitsTable}
+    DYNAMODB_DOCTOR_ITEMS_TABLE: ${self:custom.doctorItemsTable}
+    JWT_SECRET: ${env:JWT_SECRET, 'change-this-secret-in-production'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.doctorsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.doctorsTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.patientsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.patientsTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.visitsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.visitsTable}/index/*
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.doctorItemsTable}
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.doctorItemsTable}/index/*
+  timeout: 30
+  memorySize: 512
+
+functions:
+  api:
+    handler: src/lambda/index.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - Authorization
+            allowCredentials: false
+      - http:
+          path: /
+          method: ANY
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - Authorization
+            allowCredentials: false
+
+resources:
+  Resources:
+    ApiGatewayRestApi:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: ${self:service}-${self:provider.stage}
+        Description: Doctor Visit Logger API - Regional Endpoint
+        EndpointConfiguration:
+          Types:
+            - REGIONAL
+
+    DoctorsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.doctorsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: username
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: username-index
+            KeySchema:
+              - AttributeName: username
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    PatientsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.patientsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: doctor_id
+            AttributeType: S
+          - AttributeName: patient_id
+            AttributeType: S
+          - AttributeName: search_key
+            AttributeType: S
+        KeySchema:
+          - AttributeName: doctor_id
+            KeyType: HASH
+          - AttributeName: patient_id
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: doctor-search-index
+            KeySchema:
+              - AttributeName: doctor_id
+                KeyType: HASH
+              - AttributeName: search_key
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    VisitsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.visitsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: patient_id
+            AttributeType: S
+          - AttributeName: date
+            AttributeType: S
+          - AttributeName: doctor_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: patient_id
+            KeyType: HASH
+          - AttributeName: date
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: doctor-visits-index
+            KeySchema:
+              - AttributeName: doctor_id
+                KeyType: HASH
+              - AttributeName: date
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    DoctorItemsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.doctorItemsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: doctor_id
+            AttributeType: S
+          - AttributeName: item_type
+            AttributeType: S
+        KeySchema:
+          - AttributeName: doctor_id
+            KeyType: HASH
+          - AttributeName: item_type
+            KeyType: RANGE
+
+plugins:
+  - serverless-offline
+
