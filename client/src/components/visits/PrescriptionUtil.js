@@ -1,19 +1,22 @@
 export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, notes, presentingComplaint, examinationFindings, investigations, investigationsToDo }) {
 	const styles = `
 		<style>
-			@page { margin: 20mm; }
+			@page { 
+				size: A5;
+				margin: 10mm;
+			}
 			body { 
 				font-family: 'Times New Roman', Times, serif; 
 				color: #000; 
 				padding: 0;
 				margin: 0;
 				font-size: 16px;
-				line-height: 1.6;
+				line-height: 1.4;
 			}
 			.prescription-container {
-				max-width: 210mm;
+				max-width: 148mm;
 				margin: 0 auto;
-				padding: 15mm;
+				padding: 10mm;
 				padding-top: 38mm;
 				background: white;
 			}
@@ -25,40 +28,45 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				display: flex;
 				justify-content: space-between;
 				align-items: flex-end;
-				margin-top: 40px;
+				margin-top: 45px;
 			}
 			.patient-info { 
-				margin-bottom: 15px;
+				margin-bottom: 10px;
 				font-size: 16px;
-				line-height: 1.8;
+				line-height: 1.5;
 			}
 			.patient-info div {
-				margin-bottom: 3px;
+				margin-bottom: 2px;
 			}
 			.clinical-info {
-				margin-bottom: 20px;
-				line-height: 1.8;
+				margin-bottom: 12px;
+				line-height: 1.5;
 			}
 			.divider {
 				border-top: 1px solid #000;
-				margin: 15px 0;
+				margin: 10px 0;
 			}
 			.section-title { 
 				font-size: 17px;
 				font-weight: 600;
-				margin: 15px 0 10px 0;
+				margin: 10px 0 8px 0;
 			}
 			.treatment-list {
 				list-style-position: outside;
-				padding-left: 25px;
-				margin: 10px 0;
+				padding-left: 20px;
+				margin: 8px 0;
+			}
+			.treatment-list.two-columns {
+				column-count: 2;
+				column-gap: 15px;
 			}
 			.treatment-list li {
-				margin-bottom: 8px;
-				line-height: 1.6;
+				margin-bottom: 4px;
+				line-height: 1.4;
+				break-inside: avoid;
 			}
 			.notes-section {
-				margin-top: 20px;
+				margin-top: 12px;
 				font-style: italic;
 			}
 			.doctor-signature {
@@ -67,42 +75,49 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 			.doctor-name {
 				font-weight: 700;
 				font-size: 17px;
-				margin-bottom: 5px;
+				margin-bottom: 3px;
 			}
 			.doctor-credentials {
 				font-size: 13px;
 				color: #333;
 			}
 			.investigations-section {
-				margin-top: 25px;
-				padding-top: 15px;
+				margin-top: 15px;
+				padding-top: 10px;
 				border-top: 1px solid #000;
 			}
 			.footer {
-				margin-top: 30px;
-				padding-top: 15px;
+				margin-top: 20px;
+				padding-top: 10px;
 				border-top: 1px solid #000;
 				font-size: 12px;
 				text-align: center;
 			}
 			@media print {
 				body { padding: 0; }
-				.prescription-container { padding: 10mm; }
+				.prescription-container { padding: 8mm; padding-top: 38mm; }
 			}
 		</style>
 	`;
 	const medicinesList = medicines.length
 		? medicines.map((m, idx) => {
-			const dosage = m.dosage ? ` ${escapeHtml(m.dosage)}` : '';
-			const duration = m.duration && m.durationUnit 
-				? ` for ${escapeHtml(m.duration)} ${escapeHtml(m.durationUnit === 'weeks' ? 'months' : m.durationUnit === 'days' ? 'days' : 'months')}`
-				: '';
+		const dosage = m.dosage ? ` ${escapeHtml(m.dosage)}` : '';
+		const duration = m.duration && m.durationUnit 
+			? m.durationUnit === 'sos' 
+				? ' SOS'
+				: ` for ${escapeHtml(m.duration)} ${escapeHtml(m.durationUnit === 'weeks' ? 'months' : m.durationUnit === 'days' ? 'days' : 'months')}`
+			: '';
 			const displayName = m.brand && m.brand.trim()
 				? `${escapeHtml(m.brand)}${dosage}${duration}`
 				: `${escapeHtml(m.name)}${dosage}${duration}`;
 			return `<li>${displayName}</li>`;
 		}).join('')
 		: '<li>No medicines prescribed</li>';
+	
+	// Determine if we need two columns based on number of medicines
+	// A5 can fit approximately 12-15 medicines in single column depending on text length
+	// Use two columns if more than 12 medicines
+	const useTwoColumns = medicines.length > 12;
 	
 	const dateStr = new Date(visit.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 	
@@ -133,7 +148,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				</div>
 				
 				<div class="divider"></div>					<div class="section-title">Treatment:</div>
-					<ol class="treatment-list">
+					<ol class="treatment-list${useTwoColumns ? ' two-columns' : ''}">
 						${medicinesList}
 					</ol>
 					

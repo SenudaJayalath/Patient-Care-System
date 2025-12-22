@@ -3983,6 +3983,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																	<option value="weeks">Wks</option>
 																	<option value="days">Days</option>
 																	<option value="months">Mths</option>
+																	<option value="sos">SOS</option>
 																</select>
 															</div>
 															<button 
