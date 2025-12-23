@@ -1,7 +1,7 @@
 export function buildReferralLetterHTML({ doctorName, patient, visit, referralDoctorName, referralLetterBody }) {
 	const styles = `
 		<style>
-			body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111827; padding: 40px; padding-top: 38mm; max-width: 800px; margin: 0 auto; }
+			body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111827; padding: 40px; padding-top: 3mm; max-width: 800px; margin: 0 auto; }
 			.letter-title { text-align: center; font-size: 24px; font-weight: 700; margin: 20px 0 30px 0; }
 			.date-section { text-align: right; margin-bottom: 20px; color: #374151; font-size: 16px; }
 			.patient-details-section { margin-bottom: 20px; }

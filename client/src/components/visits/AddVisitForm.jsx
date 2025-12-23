@@ -569,51 +569,52 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	}
 
 	function addMedicineWithBrand(medicineId, brand = '') {
-		// Check if medicine already selected
-		if (!selectedMedicines.find(m => m.id === medicineId)) {
-			setSelectedMedicines([...selectedMedicines, { 
-				id: medicineId, 
-				brand: brand.trim(), 
-				dosage: '',
-				duration: '',
-				durationUnit: 'weeks'
-			}]);
-			// Close the expanded card
-			const newExpanded = new Set(expandedMedicines);
-			newExpanded.delete(medicineId);
-			setExpandedMedicines(newExpanded);
-			// Clear custom brand input
-			setCustomBrandInputs({ ...customBrandInputs, [medicineId]: '' });
-		}
+		// Allow same medicine to be added multiple times with different dosages
+		// Use timestamp to create unique keys for duplicate medicines
+		const uniqueKey = `${medicineId}_${Date.now()}`;
+		setSelectedMedicines([...selectedMedicines, { 
+			id: medicineId,
+			uniqueKey: uniqueKey, // For React key and removal
+			brand: brand.trim(), 
+			dosage: '',
+			duration: '',
+			durationUnit: 'weeks'
+		}]);
+		// Close the expanded card
+		const newExpanded = new Set(expandedMedicines);
+		newExpanded.delete(medicineId);
+		setExpandedMedicines(newExpanded);
+		// Clear custom brand input
+		setCustomBrandInputs({ ...customBrandInputs, [medicineId]: '' });
 		setMedQuery('');
 		setSuggestionsOpen(false);
 	}
 
-	function removeSelected(id) {
-		setSelectedMedicines(selectedMedicines.filter(m => m.id !== id));
+	function removeSelected(uniqueKey) {
+		setSelectedMedicines(selectedMedicines.filter(m => m.uniqueKey !== uniqueKey));
 	}
 
-	function updateMedicineBrand(id, brand) {
+	function updateMedicineBrand(uniqueKey, brand) {
 		setSelectedMedicines(selectedMedicines.map(m => 
-			m.id === id ? { ...m, brand } : m
+			m.uniqueKey === uniqueKey ? { ...m, brand } : m
 		));
 	}
 
-	function updateMedicineDosage(id, dosage) {
+	function updateMedicineDosage(uniqueKey, dosage) {
 		setSelectedMedicines(selectedMedicines.map(m => 
-			m.id === id ? { ...m, dosage } : m
+			m.uniqueKey === uniqueKey ? { ...m, dosage } : m
 		));
 	}
 
-	function updateMedicineDuration(id, duration) {
+	function updateMedicineDuration(uniqueKey, duration) {
 		setSelectedMedicines(selectedMedicines.map(m => 
-			m.id === id ? { ...m, duration } : m
+			m.uniqueKey === uniqueKey ? { ...m, duration } : m
 		));
 	}
 
-	function updateMedicineDurationUnit(id, durationUnit) {
+	function updateMedicineDurationUnit(uniqueKey, durationUnit) {
 		setSelectedMedicines(selectedMedicines.map(m => 
-			m.id === id ? { ...m, durationUnit } : m
+			m.uniqueKey === uniqueKey ? { ...m, durationUnit } : m
 		));
 	}
 
@@ -742,16 +743,13 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 
 	function getFilteredMedicines() {
 		const q = medQuery.toLowerCase().trim();
-		const selectedIds = selectedMedicines.map(m => m.id);
 		// Get medicine IDs that are in allergies (medicine type)
 		const allergyMedicineIds = getAllergyMedicineIds(allergies);
 		const filtered = q 
 			? medicines.filter(m => m.name.toLowerCase().includes(q))
 			: medicines;
-		// Filter out: already selected medicines AND medicines that are in allergies
-		return filtered.filter(m => 
-			!selectedIds.includes(m.id) && !allergyMedicineIds.includes(m.id)
-		);
+		// Filter out only medicines that are in allergies (allow duplicate selections)
+		return filtered.filter(m => !allergyMedicineIds.includes(m.id));
 	}
 
 	// Allergy management functions
@@ -3937,7 +3935,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 													if (!med) return null;
 													return (
 														<div 
-															key={selectedMed.id}
+															key={selectedMed.uniqueKey}
 															className="medicine-table-row"
 															style={{ 
 																display: 'grid', 
@@ -3971,7 +3969,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 															<input
 																type="text"
 																value={selectedMed.dosage || ''}
-																onChange={e => updateMedicineDosage(selectedMed.id, e.target.value)}
+																onChange={e => updateMedicineDosage(selectedMed.uniqueKey, e.target.value)}
 																placeholder="e.g., 500mg BD"
 																style={{
 																	padding: '10px 12px',
@@ -3990,7 +3988,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																	type={selectedMed.durationUnit === 'sos' ? 'text' : 'number'}
 																	min={selectedMed.durationUnit === 'sos' ? undefined : '0'}
 																	value={selectedMed.duration || ''}
-																	onChange={e => updateMedicineDuration(selectedMed.id, e.target.value)}
+																	onChange={e => updateMedicineDuration(selectedMed.uniqueKey, e.target.value)}
 																	placeholder={selectedMed.durationUnit === 'sos' ? 'e.g., 6 hrly' : 'e.g., 2'}
 																	style={{
 																		padding: '10px 8px',
@@ -4006,7 +4004,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																/>
 																<select
 																	value={selectedMed.durationUnit || 'weeks'}
-																	onChange={e => updateMedicineDurationUnit(selectedMed.id, e.target.value)}
+																	onChange={e => updateMedicineDurationUnit(selectedMed.uniqueKey, e.target.value)}
 																	style={{
 																		padding: '10px 6px',
 																		border: '1px solid #cbd5e1',
@@ -4029,7 +4027,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 															</div>
 															<button 
 																type="button" 
-																onClick={() => removeSelected(selectedMed.id)} 
+																onClick={() => removeSelected(selectedMed.uniqueKey)} 
 																aria-label={`Remove ${med.name}`} 
 																title="Remove"
 																style={{ 

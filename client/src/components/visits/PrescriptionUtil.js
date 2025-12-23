@@ -17,7 +17,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				max-width: 148mm;
 				margin: 0 auto;
 				padding: 10mm;
-				padding-top: 38mm;
+				padding-top: 3mm;
 				background: white;
 			}
 			.date-line {
@@ -95,7 +95,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 			}
 			@media print {
 				body { padding: 0; }
-				.prescription-container { padding: 8mm; padding-top: 38mm; }
+				.prescription-container { padding: 8mm; padding-top: 3mm; }
 			}
 		</style>
 	`;
@@ -120,11 +120,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 	const useTwoColumns = medicines.length > 12;
 	
 	const dateStr = new Date(visit.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-	
-	const notesHtml = notes && notes.trim() 
-		? `<div class="notes-section">Please repeat once</div>`
-		: '';
-	
+		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
 		? `<div class="investigations-section">
 			<strong>${escapeHtml(investigationsToDo.join(', '))}</strong>
@@ -152,7 +148,6 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 						${medicinesList}
 					</ol>
 					
-					${notesHtml}
 					
 					<div class="date-signature-container">
 						<div class="date-line">${dateStr}</div>
