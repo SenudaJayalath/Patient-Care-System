@@ -106,6 +106,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [familyHistory, setFamilyHistory] = useState('');
 	// Allergies: array of {type: 'medicine'|'other', medicineId?: string, medicineName?: string, text?: string}
 	const [allergies, setAllergies] = useState([]);
+	const [noKnownAllergies, setNoKnownAllergies] = useState(false); // Explicit "no allergies" flag
 	const [allergyInput, setAllergyInput] = useState(''); // For free-text allergy input
 	const [allergyMedQuery, setAllergyMedQuery] = useState(''); // For medicine search in allergies
 	const [showAllergyMedDropdown, setShowAllergyMedDropdown] = useState(false);
@@ -760,6 +761,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		if (allergies.some(a => a.type === 'medicine' && a.medicineId === medicine.id)) {
 			return;
 		}
+		setNoKnownAllergies(false); // Uncheck "no known allergies" when adding an allergy
 		setAllergies([...allergies, {
 			type: 'medicine',
 			medicineId: medicine.id,
@@ -775,6 +777,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		if (allergies.some(a => a.type === 'other' && a.text?.toLowerCase() === text.trim().toLowerCase())) {
 			return;
 		}
+		setNoKnownAllergies(false); // Uncheck "no known allergies" when adding an allergy
 		setAllergies([...allergies, {
 			type: 'other',
 			text: text.trim()
@@ -2718,11 +2721,49 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 												</label>
 												{/* Allergies Management UI */}
 												<div style={{
-													border: allergies.length > 0 ? '2px solid #fca5a5' : '1px solid #cbd5e1',
+													border: allergies.length > 0 ? '2px solid #fca5a5' : noKnownAllergies ? '2px solid #86efac' : '1px solid #cbd5e1',
 													borderRadius: '8px',
-													background: allergies.length > 0 ? '#fef2f2' : 'white',
+													background: allergies.length > 0 ? '#fef2f2' : noKnownAllergies ? '#f0fdf4' : 'white',
 													padding: '16px'
 												}}>
+													{/* No Known Allergies Checkbox */}
+													<label style={{
+														display: 'flex',
+														alignItems: 'center',
+														gap: 10,
+														marginBottom: allergies.length > 0 || !noKnownAllergies ? 16 : 0,
+														padding: '12px',
+														background: noKnownAllergies ? '#dcfce7' : '#f9fafb',
+														borderRadius: '8px',
+														cursor: 'pointer',
+														border: noKnownAllergies ? '2px solid #16a34a' : '1px solid #e5e7eb',
+														transition: 'all 0.2s'
+													}}>
+														<input
+															type="checkbox"
+															checked={noKnownAllergies}
+															onChange={(e) => {
+																setNoKnownAllergies(e.target.checked);
+																if (e.target.checked) {
+																	setAllergies([]); // Clear allergies when checking
+																}
+															}}
+															disabled={allergies.length > 0}
+															style={{
+																width: '20px',
+																height: '20px',
+																cursor: allergies.length > 0 ? 'not-allowed' : 'pointer',
+																accentColor: '#16a34a'
+															}}
+														/>
+														<span style={{
+															fontSize: '15px',
+															fontWeight: 600,
+															color: noKnownAllergies ? '#166534' : '#374151'
+														}}>
+															{noKnownAllergies ? '✓ No Known Allergies' : 'No Known Allergies'}
+														</span>
+													</label>
 													{/* Selected Allergies Display */}
 													{allergies.length > 0 && (
 														<div style={{ 
@@ -3946,11 +3987,11 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 															/>
 															<div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
 																<input
-																	type="number"
-																	min="0"
+																	type={selectedMed.durationUnit === 'sos' ? 'text' : 'number'}
+																	min={selectedMed.durationUnit === 'sos' ? undefined : '0'}
 																	value={selectedMed.duration || ''}
 																	onChange={e => updateMedicineDuration(selectedMed.id, e.target.value)}
-																	placeholder="e.g., 2"
+																	placeholder={selectedMed.durationUnit === 'sos' ? 'e.g., 6 hrly' : 'e.g., 2'}
 																	style={{
 																		padding: '10px 8px',
 																		border: '1px solid #cbd5e1',
