@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../auth/AuthContext.jsx';
-import { apiCreateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiCreateInvestigation } from '../../api.js';
+import { apiCreateVisit, apiUpdateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiCreateInvestigation } from '../../api.js';
 import PrescriptionModal from './PrescriptionModal.jsx';
 import ReferralLetterModal from './ReferralLetterModal.jsx';
 import DrugHistory from './DrugHistory.jsx';
@@ -162,6 +162,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [referralModalOpen, setReferralModalOpen] = useState(false);
 	const [referralModalData, setReferralModalData] = useState(null);
 	const [editMode, setEditMode] = useState(false);
+	const [editingVisitId, setEditingVisitId] = useState(null);
 	const [savingPatientInfo, setSavingPatientInfo] = useState(false);
 	const [showCreateMedicine, setShowCreateMedicine] = useState(false);
 	const [newMedicineName, setNewMedicineName] = useState('');
@@ -233,12 +234,13 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				const mostRecentVisit = patientLookup.visits[0];
 				if (mostRecentVisit && mostRecentVisit.prescriptions && mostRecentVisit.prescriptions.length > 0) {
 					// Convert prescriptions to selectedMedicines format: { id, brand, dosage, duration, durationUnit }
-					const medicinesFromLastVisit = mostRecentVisit.prescriptions.map(p => ({
+					const medicinesFromLastVisit = mostRecentVisit.prescriptions.map((p, index) => ({
 						id: p.id,
+						uniqueKey: `${p.id}_${Date.now()}_${index}`,
 						brand: p.brand || '',
 						dosage: p.dosage || '',
 						duration: p.duration || '',
-						durationUnit: p.durationUnit || 'weeks'
+						durationUnit: p.durationUnit || 'months'
 					}));
 					setSelectedMedicines(medicinesFromLastVisit);
 				} else {
@@ -388,6 +390,44 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		}
 	}
 
+	function editLastVisit() {
+		if (!lastVisit || !lastPatient) return;
+		
+		// Set editing mode
+		setEditingVisitId(lastVisit.id);
+		setVisitSaved(false);
+		
+		// Repopulate form with visit data
+		setPresentingComplaint(lastVisit.presentingComplaint || '');
+		setExaminationFindings(lastVisit.examinationFindings || '');
+		setInvestigations(lastVisit.investigations || []);
+		setInvestigationsToDo(lastVisit.investigationsToDo || []);
+		setShowInvestigationsToDo((lastVisit.investigationsToDo || []).length > 0);
+		setDoctorsNotes(lastVisit.notes || '');
+		
+		// Repopulate medicines with uniqueKey
+		const medicinesWithKeys = lastVisit.medicines.map((m, index) => ({
+			id: m.id,
+			uniqueKey: `${m.id}_${Date.now()}_${index}`,
+			brand: m.brand || '',
+			dosage: m.dosage || '',
+			duration: m.duration || '',
+			durationUnit: m.durationUnit || 'months'
+		}));
+		setSelectedMedicines(medicinesWithKeys);
+		
+		// Repopulate referral letter if present
+		if (lastVisit.referralLetter) {
+			setGenerateReferralLetter(true);
+			setReferralDoctorName(lastVisit.referralLetter.referralDoctorName || '');
+			setReferralLetterBody(lastVisit.referralLetter.referralLetterBody || '');
+		} else {
+			setGenerateReferralLetter(false);
+			setReferralDoctorName('');
+			setReferralLetterBody('');
+		}
+	}
+
 	function resetAll() {
 		setSearchName('');
 		setSearchNic('');
@@ -440,6 +480,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setReferralModalData(null);
 		setVisitSaved(false);
 		setEditMode(false);
+		setEditingVisitId(null);
 	}
 
 	// Save patient information updates
@@ -578,7 +619,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 			brand: brand.trim(), 
 			dosage: '',
 			duration: '',
-			durationUnit: 'weeks'
+			durationUnit: 'months'
 		}]);
 		// Close the expanded card
 		const newExpanded = new Set(expandedMedicines);
@@ -818,44 +859,107 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				brand: m.brand || '', // Custom brand (instance-specific only)
 				dosage: m.dosage || '',
 				duration: m.duration || '',
-				durationUnit: m.durationUnit || 'weeks'
+				durationUnit: m.durationUnit || 'months'
 			}));
-			const birthdayISO = birthday.trim() ? convertToYYYYMMDD(birthday.trim()) : undefined;
-			const res = await apiCreateVisit(token, { 
-				patientId: patientId || undefined,
-				name, 
-				birthday: birthdayISO,
-				phoneNumber: phoneNumber.trim() || undefined,
-				nic: nic.trim() || undefined,
-				gender: gender.trim(),
-				pastMedicalHistory: pastMedicalHistory.trim(),
-				familyHistory: familyHistory.trim(),
-				allergies: stringifyAllergies(allergies),
-				prescriptions: prescriptionData,
-				presentingComplaint: presentingComplaint.trim(),
-				examinationFindings: examinationFindings.trim(),
-				investigations: investigations, // Array of investigation results
-				investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
-				notes: doctorsNotes.trim(),
-				generateReferralLetter: generateReferralLetter,
-				referralDoctorName: generateReferralLetter ? referralDoctorName.trim() : '',
-				referralLetterBody: generateReferralLetter ? referralLetterBody.trim() : ''
-			});
-			setMessage('Visit saved successfully!');
-			const visitDate = new Date().toISOString();
-			// Use patient data from response if available, otherwise use form data
-			const patientData = res.patient || { 
-				patientId, 
-				name, 
-				birthday: birthdayISO, 
-				phoneNumber, 
-				nic, 
-				age: res.patient?.age || null,
-				gender, 
-				pastMedicalHistory, 
-				familyHistory, 
-				allergies 
-			};
+			
+			let res;
+			console.log('🔍 DEBUG: editingVisitId =', editingVisitId);
+			if (editingVisitId) {
+				console.log('🔄 Taking UPDATE path with visitId:', editingVisitId);
+				// Validate visit ID before updating
+				if (!editingVisitId || editingVisitId === 'new') {
+					throw new Error('Invalid visit ID for update');
+				}
+				// Update existing visit
+				res = await apiUpdateVisit(token, editingVisitId, {
+					prescriptions: prescriptionData,
+					presentingComplaint: presentingComplaint.trim(),
+					examinationFindings: examinationFindings.trim(),
+					investigations: investigations,
+					investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
+					notes: doctorsNotes.trim(),
+					generateReferralLetter: generateReferralLetter,
+					referralDoctorName: generateReferralLetter ? referralDoctorName.trim() : '',
+					referralLetterBody: generateReferralLetter ? referralLetterBody.trim() : ''
+				});
+				setMessage('Visit updated successfully!');
+			} else {
+				console.log('➕ Taking CREATE path');
+				// Create new visit
+				const birthdayISO = birthday.trim() ? convertToYYYYMMDD(birthday.trim()) : undefined;
+				res = await apiCreateVisit(token, { 
+					patientId: patientId || undefined,
+					name, 
+					birthday: birthdayISO,
+					phoneNumber: phoneNumber.trim() || undefined,
+					nic: nic.trim() || undefined,
+					gender: gender.trim(),
+					pastMedicalHistory: pastMedicalHistory.trim(),
+					familyHistory: familyHistory.trim(),
+					allergies: stringifyAllergies(allergies),
+					prescriptions: prescriptionData,
+					presentingComplaint: presentingComplaint.trim(),
+					examinationFindings: examinationFindings.trim(),
+					investigations: investigations, // Array of investigation results
+					investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
+					notes: doctorsNotes.trim(),
+					generateReferralLetter: generateReferralLetter,
+					referralDoctorName: generateReferralLetter ? referralDoctorName.trim() : '',
+					referralLetterBody: generateReferralLetter ? referralLetterBody.trim() : ''
+				});
+				setMessage('Visit saved successfully!');
+			}
+			
+			console.log('📦 API Response:', res);
+			console.log('📦 res.visit:', res.visit);
+			console.log('📦 res.visit?.id:', res.visit?.id);
+			
+			const visitDate = editingVisitId && lastVisit ? lastVisit.date : new Date().toISOString();
+			
+			// Extract visit ID from response
+			const visitId = editingVisitId || res.visit?.id;
+			
+			console.log('🎯 Final visitId:', visitId);
+			
+			// Validate that we have a valid visit ID
+			if (!visitId) {
+				throw new Error('Failed to retrieve visit ID from response');
+			}
+			
+			// Handle patient data differently for create vs update
+			let patientData;
+			let birthdayISO;
+			
+			if (editingVisitId) {
+				// For updates, use existing patient data from lastPatient
+				patientData = lastPatient || {
+					patientId,
+					name,
+					birthday: birthday.trim() ? convertToYYYYMMDD(birthday.trim()) : null,
+					phoneNumber,
+					nic,
+					age: age || null,
+					gender,
+					pastMedicalHistory,
+					familyHistory,
+					allergies: stringifyAllergies(allergies)
+				};
+			} else {
+				// For creates, use response data
+				birthdayISO = birthday.trim() ? convertToYYYYMMDD(birthday.trim()) : undefined;
+				patientData = res.patient || { 
+					patientId, 
+					name, 
+					birthday: birthdayISO, 
+					phoneNumber, 
+					nic, 
+					age: res.patient?.age || null,
+					gender, 
+					pastMedicalHistory, 
+					familyHistory, 
+					allergies 
+				};
+			}
 			const patientSnapshot = {
 				patientId: patientData.patientId,
 				nic: patientData.nic || '',
@@ -869,7 +973,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				allergies: patientData.allergies || ''
 			};
 			setLastVisit({
-				id: 'new',
+				id: visitId,
 				date: visitDate,
 				medicines: selectedMedicines.map(m => {
 					const med = medicines.find(med => med.id === m.id);
@@ -878,7 +982,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 						brand: m.brand || '', 
 						dosage: m.dosage || '',
 						duration: m.duration || '',
-						durationUnit: m.durationUnit || 'weeks'
+						durationUnit: m.durationUnit || 'months'
 					};
 				}),
 				notes: doctorsNotes.trim(),
@@ -894,6 +998,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 			setLastPatient(patientSnapshot);
 			setShowModal(false);
 			setVisitSaved(true);
+			setEditingVisitId(null); // Reset editing mode after successful save
 			// Refresh patient lookup to show updated history
 			if (res.patient?.patientId) {
 				await selectPatient(res.patient.patientId);
@@ -963,6 +1068,21 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 									📋 View Referral Letter
 								</button>
 							)}
+							<button 
+								type="button" 
+								onClick={editLastVisit}
+								style={{ 
+									background: '#f59e0b', 
+									color: 'white', 
+									border: 'none',
+									padding: '10px 20px',
+									borderRadius: '6px',
+									fontWeight: 600,
+									cursor: 'pointer'
+								}}
+							>
+								✏️ Edit Visit
+							</button>
 							<button 
 								type="button" 
 								onClick={resetAll}
@@ -1319,7 +1439,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					{((patientLookup && patientLookup.visits && patientLookup.visits.length > 0) || patientId) && (
 						<div>
 							{/* Drug History Card - Show for all patients with patientId */}
-							{patientId && <DrugHistory patientId={patientId} medicines={medicines} />}
+							{patientId && <DrugHistory patientId={patientId} medicines={medicines} onMedicineCreated={onMedicineCreated} />}
 							
 							{/* Patient Information Card with Edit Functionality - Only show if patient has visits */}
 							{patientLookup && patientLookup.visits && patientLookup.visits.length > 0 && (

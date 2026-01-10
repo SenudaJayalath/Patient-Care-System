@@ -735,6 +735,103 @@ export async function createVisitHandler(event) {
 	}
 }
 
+export async function updateVisitHandler(event) {
+	try {
+		const token = extractToken(event);
+		if (!token) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		const doctorId = await verifyToken(token);
+		if (!doctorId) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		const visitId = event.pathParameters?.id;
+		if (!visitId) {
+			return errorResponse('Visit ID is required', 400);
+		}
+
+		// Get existing visit using GSI on id field
+		const visits = await queryItems(
+			TABLES.VISITS,
+			'id = :id',
+			{ ':id': visitId },
+			{},
+			'visit-id-index'
+		);
+		
+		if (!visits || visits.length === 0) {
+			return errorResponse('Visit not found', 404);
+		}
+		
+		const existingVisit = visits[0];
+
+		if (existingVisit.doctor_id !== doctorId) {
+			return errorResponse('Unauthorized to update this visit', 403);
+		}
+
+		const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : (event.body || '{}');
+		const { 
+			prescriptions, 
+			presentingComplaint, 
+			examinationFindings, 
+			investigations, 
+			investigationsToDo,
+			notes, 
+			generateReferralLetter, 
+			referralDoctorName, 
+			referralLetterBody 
+		} = body;
+
+		if (!Array.isArray(prescriptions)) {
+			return errorResponse('prescriptions (array) is required', 400);
+		}
+
+		// Validate prescriptions structure
+		for (const p of prescriptions) {
+			if (!p.medicineId) {
+				return errorResponse('Each prescription must have medicineId', 400);
+			}
+		}
+
+		// Update visit
+		const updatedVisit = {
+			...existingVisit,
+			notes: notes || '',
+			presentingComplaint: presentingComplaint || '',
+			examinationFindings: examinationFindings || '',
+			investigations: Array.isArray(investigations) ? investigations : (investigations ? [{ investigationName: investigations, result: '', date: '' }] : []),
+			investigationsToDo: Array.isArray(investigationsToDo) ? investigationsToDo : [],
+			prescriptions: prescriptions.map(p => ({
+				medicine_id: p.medicineId,
+				brand: p.brand || '',
+				dosage: p.dosage || '',
+				duration: p.duration || '',
+				durationUnit: p.durationUnit || 'months'
+			})),
+			referralLetter: generateReferralLetter ? {
+				referralDoctorName: referralDoctorName || '',
+				referralLetterBody: referralLetterBody || ''
+			} : null,
+			updated_at: new Date().toISOString()
+		};
+
+		await putItem(TABLES.VISITS, updatedVisit);
+
+		return successResponse({ 
+			message: 'Visit updated successfully',
+			visit: {
+				id: visitId,
+				date: updatedVisit.date
+			}
+		}, 200);
+	} catch (error) {
+		console.error('Update visit error:', error);
+		return errorResponse('Failed to update visit: ' + error.message, 500);
+	}
+}
+
 // Search patients handler - multi-criteria search
 // IMPORTANT: All patient searches are scoped to the current doctor (from JWT token)
 export async function searchPatientsHandler(event) {

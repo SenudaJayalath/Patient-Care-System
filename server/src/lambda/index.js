@@ -9,6 +9,7 @@ import {
 	investigationsHandler,
 	createInvestigationHandler,
 	createVisitHandler,
+	updateVisitHandler,
 	getPatientHandler,
 	searchPatientsHandler,
 	logoutHandler,
@@ -99,7 +100,27 @@ export async function handler(event) {
 			}
 		}
 
-		// Handle /api/patients/search - multi-criteria search
+	// Handle /api/visits/:id pattern for UPDATE
+	const visitMatch = path.match(/^\/api\/visits\/([^\/]+)$/) || path.match(/^\/visits\/([^\/]+)$/);
+	if (visitMatch) {
+		if (method === 'PUT') {
+			console.log('Matched visit update route');
+			// Extract visit ID from path
+			if (!event.pathParameters) {
+				event.pathParameters = {};
+			}
+			const visitIdFromPath = visitMatch[1];
+			// If proxy is used, extract from proxy value
+			if (event.pathParameters.proxy) {
+				const proxyParts = event.pathParameters.proxy.split('/');
+				event.pathParameters.id = proxyParts[proxyParts.length - 1] || visitIdFromPath;
+			} else {
+				event.pathParameters.id = decodeURIComponent(visitIdFromPath);
+			}
+			console.log('Extracted visit ID:', event.pathParameters.id);
+			return await updateVisitHandler(event);
+		}
+	}		// Handle /api/patients/search - multi-criteria search
 		if (path === '/api/patients/search' || path === '/patients/search') {
 			if (method === 'GET') {
 				return await searchPatientsHandler(event);

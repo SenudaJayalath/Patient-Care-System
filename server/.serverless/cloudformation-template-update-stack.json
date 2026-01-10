@@ -183,7 +183,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/doctor-visit-logger/dev/1764696271831-2025-12-02T17:24:31.831Z/doctor-visit-logger.zip"
+          "S3Key": "serverless/doctor-visit-logger/dev/1768032027945-2026-01-10T08:00:27.945Z/doctor-visit-logger.zip"
         },
         "Handler": "src/lambda/index.handler",
         "Runtime": "nodejs18.x",
@@ -210,14 +210,14 @@
         "ApiLogGroup"
       ]
     },
-    "ApiLambdaVersionz4wuF6dbWrxNKR05vonhUBO6FQrebejo8o3u4Lc5M": {
+    "ApiLambdaVersionUe06rfl8V4vHmS8Po3Gm7DvaKiRwlzJACCYf0ZHZ2O8": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ApiLambdaFunction"
         },
-        "CodeSha256": "+G3yUc2tfiwAfO/g+VgN/2UiyrTr7p1A0Yl8CO46SPY="
+        "CodeSha256": "V/wSaDfHl+Dw3XcQz8kCQO71dRAELKYYmR9j9HBmquE="
       }
     },
     "ApiGatewayResourceProxyVar": {
@@ -423,7 +423,7 @@
         "ApiLambdaPermissionApiGateway"
       ]
     },
-    "ApiGatewayDeployment1764696257722": {
+    "ApiGatewayDeployment1768032023816": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
         "RestApiId": {
@@ -590,6 +590,10 @@
           {
             "AttributeName": "doctor_id",
             "AttributeType": "S"
+          },
+          {
+            "AttributeName": "id",
+            "AttributeType": "S"
           }
         ],
         "KeySchema": [
@@ -613,6 +617,18 @@
               {
                 "AttributeName": "date",
                 "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          },
+          {
+            "IndexName": "visit-id-index",
+            "KeySchema": [
+              {
+                "AttributeName": "id",
+                "KeyType": "HASH"
               }
             ],
             "Projection": {
@@ -662,7 +678,7 @@
     "ApiLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ApiLambdaVersionz4wuF6dbWrxNKR05vonhUBO6FQrebejo8o3u4Lc5M"
+        "Ref": "ApiLambdaVersionUe06rfl8V4vHmS8Po3Gm7DvaKiRwlzJACCYf0ZHZ2O8"
       },
       "Export": {
         "Name": "sls-doctor-visit-logger-dev-ApiLambdaFunctionQualifiedArn"

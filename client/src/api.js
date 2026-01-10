@@ -106,6 +106,29 @@ export async function apiCreateVisit(token, { patientId, name, birthday, phoneNu
 	return await res.json();
 }
 
+export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+	const res = await fetch(`${API_BASE}/api/visits/${visitId}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ 
+			prescriptions,
+			presentingComplaint: presentingComplaint || '',
+			examinationFindings: examinationFindings || '',
+			investigations: investigations || '',
+			investigationsToDo: investigationsToDo || [],
+			notes: notes || '',
+			generateReferralLetter: generateReferralLetter || false,
+			referralDoctorName: referralDoctorName || '',
+			referralLetterBody: referralLetterBody || ''
+		})
+	});
+	if (!res.ok) throw new Error('Failed to update visit');
+	return await res.json();
+}
+
 // Search patients - searches are automatically scoped to the current doctor
 // The doctor ID is extracted from the JWT token on the backend (secure - cannot be tampered with)
 export async function apiSearchPatients(token, { name, nic, phoneNumber, birthday }) {

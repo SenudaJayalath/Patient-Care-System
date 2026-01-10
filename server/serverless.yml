@@ -142,6 +142,8 @@ resources:
             AttributeType: S
           - AttributeName: doctor_id
             AttributeType: S
+          - AttributeName: id
+            AttributeType: S
         KeySchema:
           - AttributeName: patient_id
             KeyType: HASH
@@ -154,6 +156,12 @@ resources:
                 KeyType: HASH
               - AttributeName: date
                 KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: visit-id-index
+            KeySchema:
+              - AttributeName: id
+                KeyType: HASH
             Projection:
               ProjectionType: ALL
 

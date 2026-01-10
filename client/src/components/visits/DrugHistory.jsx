@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../auth/AuthContext.jsx';
-import { apiGetDrugHistory, apiUpdateDrugHistory } from '../../api.js';
+import { apiGetDrugHistory, apiUpdateDrugHistory, apiCreateMedicine, apiAddBrandToMedicine } from '../../api.js';
 
-export default function DrugHistory({ patientId, medicines }) {
+export default function DrugHistory({ patientId, medicines, onMedicineCreated }) {
 	const { token } = useAuth();
 	const [drugs, setDrugs] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -14,12 +14,18 @@ export default function DrugHistory({ patientId, medicines }) {
 	// For adding new drug
 	const [medQuery, setMedQuery] = useState('');
 	const [showMedDropdown, setShowMedDropdown] = useState(false);
-	const [selectedMedicine, setSelectedMedicine] = useState(null);
-	const [brandInput, setBrandInput] = useState('');
-	const [doseInput, setDoseInput] = useState('');
+	const [expandedMedicines, setExpandedMedicines] = useState(new Set());
+	const [customBrandInputs, setCustomBrandInputs] = useState({});
+	const [addingBrandToMedicineId, setAddingBrandToMedicineId] = useState(null);
 	const medInputRef = useRef(null);
 	const medDropdownRef = useRef(null);
 	const medContainerRef = useRef(null);
+	
+	// For creating new medicine
+	const [showCreateMedicine, setShowCreateMedicine] = useState(false);
+	const [newMedicineName, setNewMedicineName] = useState('');
+	const [newMedicineBrands, setNewMedicineBrands] = useState('');
+	const [creatingMedicine, setCreatingMedicine] = useState(false);
 
 	// Load drug history when patientId changes
 	useEffect(() => {
@@ -56,6 +62,99 @@ export default function DrugHistory({ patientId, medicines }) {
 		m.name.toLowerCase().includes(medQuery.toLowerCase().trim())
 	).slice(0, 10);
 
+	// Toggle medicine card expansion
+	function toggleMedicineExpand(id) {
+		const newExpanded = new Set(expandedMedicines);
+		if (newExpanded.has(id)) {
+			newExpanded.delete(id);
+		} else {
+			newExpanded.add(id);
+		}
+		setExpandedMedicines(newExpanded);
+	}
+
+	// Add medicine with brand to drug list
+	function addMedicineWithBrand(medicineId, brand = '') {
+		const medicine = medicines.find(m => m.id === medicineId);
+		if (!medicine) return;
+
+		const newDrug = {
+			medicine_id: medicine.id,
+			medicine_name: medicine.name,
+			brand: brand.trim() || '',
+			dose: ''
+		};
+
+		// Check if already exists
+		if (drugs.some(d => d.medicine_id === medicine.id)) {
+			setError('This medicine is already in the drug history');
+			setTimeout(() => setError(''), 3000);
+			return;
+		}
+
+		setDrugs([...drugs, newDrug]);
+		
+		// Close the expanded card
+		const newExpanded = new Set(expandedMedicines);
+		newExpanded.delete(medicineId);
+		setExpandedMedicines(newExpanded);
+		
+		// Clear custom brand input
+		setCustomBrandInputs({ ...customBrandInputs, [medicineId]: '' });
+		setMedQuery('');
+		setShowMedDropdown(false);
+		setError('');
+	}
+
+	// Create new medicine
+	async function handleCreateMedicine() {
+		if (!newMedicineName.trim()) {
+			setError('Medicine name is required');
+			return;
+		}
+		setCreatingMedicine(true);
+		setError('');
+		try {
+			const brands = newMedicineBrands.split(',').map(b => b.trim()).filter(b => b);
+			const newMed = await apiCreateMedicine(token, { name: newMedicineName.trim(), brands });
+			if (onMedicineCreated) {
+				onMedicineCreated(newMed);
+			}
+			setMessage(`Medicine "${newMed.name}" created successfully!`);
+			setShowCreateMedicine(false);
+			setNewMedicineName('');
+			setNewMedicineBrands('');
+			setMedQuery('');
+			setShowMedDropdown(false);
+			setTimeout(() => setMessage(''), 3000);
+		} catch (err) {
+			setError('Failed to create medicine: ' + err.message);
+		} finally {
+			setCreatingMedicine(false);
+		}
+	}
+
+	// Add brand to existing medicine
+	async function handleAddBrandToMedicine(medicineId, brand) {
+		if (!brand.trim()) return;
+		
+		setAddingBrandToMedicineId(medicineId);
+		setError('');
+		try {
+			const updatedMedicine = await apiAddBrandToMedicine(token, { medicineId, brand: brand.trim() });
+			if (onMedicineCreated) {
+				onMedicineCreated(updatedMedicine);
+			}
+			setMessage(`Brand "${brand.trim()}" added successfully!`);
+			setCustomBrandInputs({ ...customBrandInputs, [medicineId]: '' });
+			setTimeout(() => setMessage(''), 3000);
+		} catch (err) {
+			setError('Failed to add brand: ' + err.message);
+		} finally {
+			setAddingBrandToMedicineId(null);
+		}
+	}
+
 	// Click outside handler to close dropdown
 	useEffect(() => {
 		function handleClickOutside(event) {
@@ -72,43 +171,6 @@ export default function DrugHistory({ patientId, medicines }) {
 			document.removeEventListener('mousedown', handleClickOutside);
 		};
 	}, [showMedDropdown]);
-
-	// Handle medicine selection
-	function handleMedicineSelect(medicine) {
-		setSelectedMedicine(medicine);
-		setMedQuery(medicine.name);
-		setShowMedDropdown(false);
-		setBrandInput('');
-		setDoseInput('');
-	}
-
-	// Add new drug
-	function handleAddDrug() {
-		if (!selectedMedicine) {
-			setError('Please select a medicine');
-			return;
-		}
-
-		const newDrug = {
-			medicine_id: selectedMedicine.id,
-			medicine_name: selectedMedicine.name,
-			brand: brandInput.trim() || '',
-			dose: doseInput.trim() || ''
-		};
-
-		// Check if already exists
-		if (drugs.some(d => d.medicine_id === selectedMedicine.id)) {
-			setError('This medicine is already in the drug history');
-			return;
-		}
-
-		setDrugs([...drugs, newDrug]);
-		setSelectedMedicine(null);
-		setMedQuery('');
-		setBrandInput('');
-		setDoseInput('');
-		setError('');
-	}
 
 	// Remove drug
 	function handleRemoveDrug(index) {
@@ -286,7 +348,6 @@ export default function DrugHistory({ patientId, medicines }) {
 										onChange={(e) => {
 											setMedQuery(e.target.value);
 											setShowMedDropdown(true);
-											setSelectedMedicine(null);
 										}}
 										onFocus={() => setShowMedDropdown(true)}
 										placeholder="Search medicine..."
@@ -298,7 +359,7 @@ export default function DrugHistory({ patientId, medicines }) {
 											fontSize: '13px'
 										}}
 									/>
-									{showMedDropdown && filteredMedicines.length > 0 && (
+									{showMedDropdown && (
 										<div
 											ref={medDropdownRef}
 											style={{
@@ -310,113 +371,377 @@ export default function DrugHistory({ patientId, medicines }) {
 												border: '1px solid #cbd5e1',
 												borderRadius: '6px',
 												boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-												maxHeight: '200px',
+												maxHeight: '300px',
 												overflowY: 'auto',
 												zIndex: 1000,
 												marginTop: '4px'
 											}}
 										>
-											{filteredMedicines.map(med => (
-												<div
-													key={med.id}
-													onClick={() => handleMedicineSelect(med)}
-													style={{
-														padding: '10px 12px',
-														cursor: 'pointer',
-														borderBottom: '1px solid #f1f5f9',
-														transition: 'background 0.2s'
-													}}
-													onMouseEnter={(e) => {
-														e.target.style.background = '#f1f5f9';
-													}}
-													onMouseLeave={(e) => {
-														e.target.style.background = 'white';
-													}}
-												>
-													<div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b' }}>
-														{med.name}
+											{filteredMedicines.length === 0 && medQuery.trim() && (
+												<div style={{ padding: '12px' }}>
+													<div style={{ marginBottom: 8, fontSize: '13px', color: '#64748b' }}>
+														Medicine not found
 													</div>
+													<button
+														type="button"
+														onClick={() => {
+															setShowCreateMedicine(true);
+															setNewMedicineName(medQuery);
+															setShowMedDropdown(false);
+														}}
+														style={{
+															width: '100%',
+															padding: '8px',
+															background: '#f1f5f9',
+															border: '1px solid #cbd5e1',
+															borderRadius: '6px',
+															fontSize: '12px',
+															fontWeight: 600,
+															color: '#475569',
+															cursor: 'pointer'
+														}}
+													>
+														+ Create New Medicine
+													</button>
 												</div>
-											))}
+											)}
+											{filteredMedicines.map(med => {
+												const isExpanded = expandedMedicines.has(med.id);
+												return (
+													<div
+														key={med.id}
+														style={{
+															borderBottom: '1px solid #f1f5f9'
+														}}
+													>
+														<div
+															onClick={() => toggleMedicineExpand(med.id)}
+															style={{
+																padding: '10px 12px',
+																cursor: 'pointer',
+																background: isExpanded ? '#f8fafc' : 'white',
+																display: 'flex',
+																justifyContent: 'space-between',
+																alignItems: 'center'
+															}}
+															onMouseEnter={(e) => {
+																if (!isExpanded) e.currentTarget.style.background = '#f1f5f9';
+															}}
+															onMouseLeave={(e) => {
+																if (!isExpanded) e.currentTarget.style.background = 'white';
+															}}
+														>
+															<div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b' }}>
+																{med.name}
+															</div>
+															<span style={{ fontSize: '12px', color: '#64748b' }}>
+																{isExpanded ? '▲' : '▼'}
+															</span>
+														</div>
+														{isExpanded && (
+															<div style={{ 
+																padding: '12px', 
+																background: '#f8fafc',
+																borderTop: '1px solid #e2e8f0'
+															}}>
+																{/* Predefined Brands */}
+																{med.brands && med.brands.length > 0 && (
+																	<div style={{ marginBottom: 12 }}>
+																		<div style={{ 
+																			fontSize: '12px', 
+																			fontWeight: 600,
+																			color: '#475569',
+																			marginBottom: 6 
+																		}}>
+																			Available Brands:
+																		</div>
+																		<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+																			{med.brands.map((brand, idx) => (
+																				<button
+																					key={idx}
+																					type="button"
+																					onClick={() => addMedicineWithBrand(med.id, brand)}
+																					style={{
+																						padding: '6px 10px',
+																						background: 'white',
+																						border: '1px solid #cbd5e1',
+																						borderRadius: '6px',
+																						fontSize: '12px',
+																						color: '#1e293b',
+																						cursor: 'pointer',
+																						fontWeight: 500
+																					}}
+																					onMouseEnter={(e) => {
+																						e.target.style.background = '#e0f2fe';
+																						e.target.style.borderColor = '#3b82f6';
+																					}}
+																					onMouseLeave={(e) => {
+																						e.target.style.background = 'white';
+																						e.target.style.borderColor = '#cbd5e1';
+																					}}
+																				>
+																					{brand}
+																				</button>
+																			))}
+																		</div>
+																	</div>
+																)}
+																
+																{/* No Brand Option */}
+																<button
+																	type="button"
+																	onClick={() => addMedicineWithBrand(med.id, '')}
+																	style={{
+																		width: '100%',
+																		padding: '8px',
+																		background: 'white',
+																		border: '1px solid #cbd5e1',
+																		borderRadius: '6px',
+																		fontSize: '12px',
+																		fontWeight: 600,
+																		color: '#475569',
+																		cursor: 'pointer',
+																		marginBottom: 8
+																	}}
+																	onMouseEnter={(e) => {
+																		e.target.style.background = '#f1f5f9';
+																	}}
+																	onMouseLeave={(e) => {
+																		e.target.style.background = 'white';
+																	}}
+																>
+																	Add without brand
+																</button>
+																
+																{/* Custom Brand Input */}
+																<div style={{ marginTop: 8 }}>
+																	<div style={{ 
+																		fontSize: '11px', 
+																		color: '#64748b',
+																		marginBottom: 4,
+																		fontWeight: 600
+																	}}>
+																		Or enter custom brand:
+																	</div>
+																	<div style={{ display: 'flex', gap: 6 }}>
+																		<input
+																			type="text"
+																			value={customBrandInputs[med.id] || ''}
+																			onChange={(e) => setCustomBrandInputs({
+																				...customBrandInputs,
+																				[med.id]: e.target.value
+																			})}
+																			placeholder="Brand name..."
+																			style={{
+																				flex: 1,
+																				padding: '6px 8px',
+																				border: '1px solid #cbd5e1',
+																				borderRadius: '4px',
+																				fontSize: '12px'
+																			}}
+																			onKeyPress={(e) => {
+																				if (e.key === 'Enter' && customBrandInputs[med.id]?.trim()) {
+																					addMedicineWithBrand(med.id, customBrandInputs[med.id]);
+																				}
+																			}}
+																		/>
+																		<button
+																			type="button"
+																			onClick={() => {
+																				if (customBrandInputs[med.id]?.trim()) {
+																					addMedicineWithBrand(med.id, customBrandInputs[med.id]);
+																				}
+																			}}
+																			disabled={!customBrandInputs[med.id]?.trim()}
+																			style={{
+																				padding: '6px 12px',
+																				background: customBrandInputs[med.id]?.trim() ? '#10b981' : '#cbd5e1',
+																				border: 'none',
+																				borderRadius: '4px',
+																				color: 'white',
+																				fontSize: '11px',
+																				fontWeight: 600,
+																				cursor: customBrandInputs[med.id]?.trim() ? 'pointer' : 'not-allowed',
+																				whiteSpace: 'nowrap'
+																			}}
+																		>
+																			Add
+																		</button>
+																	</div>
+																</div>
+																
+																{/* Add Brand to Medicine */}
+																<div style={{ 
+																	marginTop: 12,
+																	paddingTop: 12,
+																	borderTop: '1px solid #e2e8f0'
+																}}>
+																	<div style={{ 
+																		fontSize: '11px', 
+																		color: '#64748b',
+																		marginBottom: 4,
+																		fontWeight: 600
+																	}}>
+																		Save brand to medicine list:
+																	</div>
+																	<div style={{ display: 'flex', gap: 6 }}>
+																		<input
+																			type="text"
+																			placeholder="New brand name..."
+																			style={{
+																				flex: 1,
+																				padding: '6px 8px',
+																				border: '1px solid #cbd5e1',
+																				borderRadius: '4px',
+																				fontSize: '12px'
+																			}}
+																			onKeyPress={(e) => {
+																				if (e.key === 'Enter' && e.target.value.trim()) {
+																					handleAddBrandToMedicine(med.id, e.target.value);
+																					e.target.value = '';
+																				}
+																			}}
+																		/>
+																		<button
+																			type="button"
+																			onClick={(e) => {
+																				const input = e.target.previousElementSibling;
+																				if (input.value.trim()) {
+																					handleAddBrandToMedicine(med.id, input.value);
+																					input.value = '';
+																				}
+																			}}
+																			disabled={addingBrandToMedicineId === med.id}
+																			style={{
+																				padding: '6px 12px',
+																				background: addingBrandToMedicineId === med.id ? '#cbd5e1' : '#3b82f6',
+																				border: 'none',
+																				borderRadius: '4px',
+																				color: 'white',
+																				fontSize: '11px',
+																				fontWeight: 600,
+																				cursor: addingBrandToMedicineId === med.id ? 'not-allowed' : 'pointer',
+																				whiteSpace: 'nowrap'
+																			}}
+																		>
+																			{addingBrandToMedicineId === med.id ? 'Adding...' : 'Save'}
+																		</button>
+																	</div>
+																</div>
+															</div>
+														)}
+													</div>
+												);
+											})}
 										</div>
 									)}
 								</div>
 							</div>
+						</div>
+					)}
 
-							{selectedMedicine && (
-								<>
-									<div style={{ marginBottom: 12 }}>
-										<label style={{ 
-											display: 'block', 
-											marginBottom: 6, 
-											fontSize: '13px', 
+					{/* Create New Medicine Modal */}
+					{showCreateMedicine && (
+						<div style={{
+							position: 'fixed',
+							top: 0,
+							left: 0,
+							right: 0,
+							bottom: 0,
+							background: 'rgba(0,0,0,0.5)',
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							zIndex: 2000
+						}}>
+							<div style={{
+								background: 'white',
+								borderRadius: '12px',
+								padding: '24px',
+								width: '90%',
+								maxWidth: '500px',
+								boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+							}}>
+								<h3 style={{ marginTop: 0, marginBottom: 16 }}>Create New Medicine</h3>
+								<div style={{ marginBottom: 12 }}>
+									<label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>
+										Medicine Name
+									</label>
+									<input
+										type="text"
+										value={newMedicineName}
+										onChange={(e) => setNewMedicineName(e.target.value)}
+										placeholder="Enter medicine name..."
+										style={{
+											width: '100%',
+											padding: '8px 12px',
+											border: '1px solid #cbd5e1',
+											borderRadius: '6px',
+											fontSize: '13px'
+										}}
+									/>
+								</div>
+								<div style={{ marginBottom: 16 }}>
+									<label style={{ display: 'block', marginBottom: 6, fontSize: '13px', fontWeight: 600 }}>
+										Brands (Optional, comma-separated)
+									</label>
+									<input
+										type="text"
+										value={newMedicineBrands}
+										onChange={(e) => setNewMedicineBrands(e.target.value)}
+										placeholder="e.g., Brand A, Brand B, Brand C"
+										style={{
+											width: '100%',
+											padding: '8px 12px',
+											border: '1px solid #cbd5e1',
+											borderRadius: '6px',
+											fontSize: '13px'
+										}}
+									/>
+								</div>
+								<div style={{ display: 'flex', gap: 8 }}>
+									<button
+										type="button"
+										onClick={handleCreateMedicine}
+										disabled={creatingMedicine || !newMedicineName.trim()}
+										style={{
+											flex: 1,
+											padding: '10px',
+											background: (creatingMedicine || !newMedicineName.trim()) ? '#cbd5e1' : '#10b981',
+											border: 'none',
+											borderRadius: '6px',
+											color: 'white',
+											fontSize: '13px',
 											fontWeight: 600,
-											color: '#475569'
-										}}>
-											Brand (Optional)
-										</label>
-										<input
-											type="text"
-											value={brandInput}
-											onChange={(e) => setBrandInput(e.target.value)}
-											placeholder="Enter brand name..."
-											style={{
-												width: '100%',
-												padding: '8px 12px',
-												border: '1px solid #cbd5e1',
-												borderRadius: '6px',
-												fontSize: '13px'
-											}}
-										/>
-									</div>
-									<div style={{ marginBottom: 12 }}>
-										<label style={{ 
-											display: 'block', 
-											marginBottom: 6, 
-											fontSize: '13px', 
+											cursor: (creatingMedicine || !newMedicineName.trim()) ? 'not-allowed' : 'pointer'
+										}}
+									>
+										{creatingMedicine ? 'Creating...' : 'Create Medicine'}
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											setShowCreateMedicine(false);
+											setNewMedicineName('');
+											setNewMedicineBrands('');
+										}}
+										disabled={creatingMedicine}
+										style={{
+											flex: 1,
+											padding: '10px',
+											background: '#f1f5f9',
+											border: '1px solid #cbd5e1',
+											borderRadius: '6px',
+											color: '#475569',
+											fontSize: '13px',
 											fontWeight: 600,
-											color: '#475569'
-										}}>
-											Dose
-										</label>
-										<input
-											type="text"
-											value={doseInput}
-											onChange={(e) => setDoseInput(e.target.value)}
-											placeholder="Enter dosage (e.g., 500mg twice daily)..."
-											style={{
-												width: '100%',
-												padding: '8px 12px',
-												border: '1px solid #cbd5e1',
-												borderRadius: '6px',
-												fontSize: '13px'
-											}}
-										/>
-									</div>
-								</>
-							)}
-
-							<button
-								type="button"
-								onClick={handleAddDrug}
-								disabled={!selectedMedicine}
-								style={{
-									width: '100%',
-									padding: '8px 12px',
-									background: selectedMedicine 
-										? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-										: '#cbd5e1',
-									border: 'none',
-									borderRadius: '6px',
-									color: 'white',
-									fontSize: '13px',
-									fontWeight: 600,
-									cursor: selectedMedicine ? 'pointer' : 'not-allowed',
-									marginBottom: 12
-								}}
-							>
-								Add Drug
-							</button>
+											cursor: creatingMedicine ? 'not-allowed' : 'pointer'
+										}}
+									>
+										Cancel
+									</button>
+								</div>
+							</div>
 						</div>
 					)}
 
@@ -439,57 +764,92 @@ export default function DrugHistory({ patientId, medicines }) {
 											padding: '12px',
 											background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
 											borderRadius: '8px',
-											border: '1px solid #e2e8f0',
-											display: 'flex',
-											justifyContent: 'space-between',
-											alignItems: 'center'
+											border: '1px solid #e2e8f0'
 										}}
 									>
-										<div style={{ flex: 1 }}>
-											<div style={{ 
-												fontWeight: 600, 
-												fontSize: '13px',
-												color: '#1e293b',
-												marginBottom: 4
-											}}>
-												{drug.medicine_name}
-											</div>
-											{drug.brand && (
+										<div style={{ 
+											display: 'flex',
+											justifyContent: 'space-between',
+											alignItems: 'flex-start',
+											marginBottom: 8
+										}}>
+											<div style={{ flex: 1 }}>
 												<div style={{ 
-													fontSize: '12px',
-													color: '#64748b',
-													marginBottom: 2
+													fontWeight: 600, 
+													fontSize: '13px',
+													color: '#1e293b',
+													marginBottom: 4
 												}}>
-													Brand: {drug.brand}
+													{drug.medicine_name}
 												</div>
+												{drug.brand && (
+													<div style={{ 
+														fontSize: '12px',
+														color: '#64748b',
+														marginBottom: 2
+													}}>
+														Brand: {drug.brand}
+													</div>
+												)}
+											</div>
+											{editing && (
+												<button
+													type="button"
+													onClick={() => handleRemoveDrug(index)}
+													style={{
+														padding: '6px 10px',
+														background: '#fee2e2',
+														border: '1px solid #fca5a5',
+														borderRadius: '6px',
+														color: '#dc2626',
+														fontSize: '12px',
+														fontWeight: 600,
+														cursor: 'pointer',
+														marginLeft: 8
+													}}
+												>
+													Remove
+												</button>
 											)}
-											{drug.dose && (
+										</div>
+										{editing ? (
+											<div>
+												<label style={{ 
+													display: 'block',
+													fontSize: '11px',
+													fontWeight: 600,
+													color: '#475569',
+													marginBottom: 4
+												}}>
+													Dose:
+												</label>
+												<input
+													type="text"
+													value={drug.dose || ''}
+													onChange={(e) => {
+														const updatedDrugs = [...drugs];
+														updatedDrugs[index] = { ...drug, dose: e.target.value };
+														setDrugs(updatedDrugs);
+													}}
+													placeholder="e.g., 500mg twice daily"
+													style={{
+														width: '100%',
+														padding: '6px 8px',
+														border: '1px solid #cbd5e1',
+														borderRadius: '4px',
+														fontSize: '12px'
+													}}
+												/>
+											</div>
+										) : (
+											drug.dose && (
 												<div style={{ 
 													fontSize: '12px',
 													color: '#64748b'
 												}}>
 													Dose: {drug.dose}
 												</div>
-											)}
-										</div>
-										{editing && (
-											<button
-												type="button"
-												onClick={() => handleRemoveDrug(index)}
-												style={{
-													padding: '6px 10px',
-													background: '#fee2e2',
-													border: '1px solid #fca5a5',
-													borderRadius: '6px',
-													color: '#dc2626',
-													fontSize: '12px',
-													fontWeight: 600,
-													cursor: 'pointer',
-													marginLeft: 8
-												}}
-											>
-												Remove
-											</button>
+											)
 										)}
 									</div>
 								))}

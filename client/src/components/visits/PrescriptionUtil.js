@@ -105,7 +105,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 		const duration = m.duration && m.durationUnit 
 			? m.durationUnit === 'sos' 
 				? ` ${escapeHtml(m.duration)} SOS`
-				: ` for ${escapeHtml(m.duration)} ${escapeHtml(m.durationUnit === 'weeks' ? 'months' : m.durationUnit === 'days' ? 'days' : 'months')}`
+				: ` for ${escapeHtml(m.duration)} ${escapeHtml(m.durationUnit === 'weeks' ? 'weeks' : m.durationUnit === 'days' ? 'days' : 'months')}`
 			: m.durationUnit === 'sos' ? ' SOS' : '';
 			const displayName = m.brand && m.brand.trim()
 				? `${escapeHtml(m.brand)}${dosage}${duration}`
