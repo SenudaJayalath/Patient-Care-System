@@ -221,7 +221,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/doctor-visit-logger/dev/1768032027945-2026-01-10T08:00:27.945Z/doctor-visit-logger.zip"
+                "S3Key": "serverless/doctor-visit-logger/dev/1768496056764-2026-01-15T16:54:16.764Z/doctor-visit-logger.zip"
               },
               "Handler": "src/lambda/index.handler",
               "Runtime": "nodejs18.x",
@@ -248,14 +248,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersionUe06rfl8V4vHmS8Po3Gm7DvaKiRwlzJACCYf0ZHZ2O8": {
+          "ApiLambdaVersionw7U3LbvtRBidgSKeLorZW3ghTkTjKwG84qQHu3vbJrE": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "V/wSaDfHl+Dw3XcQz8kCQO71dRAELKYYmR9j9HBmquE="
+              "CodeSha256": "rG8iGHcWDiktbXii0TQMpzNqvS9JgcirjEpUQgclVPw="
             }
           },
           "ApiGatewayResourceProxyVar": {
@@ -461,7 +461,7 @@
               "ApiLambdaPermissionApiGateway"
             ]
           },
-          "ApiGatewayDeployment1768032023816": {
+          "ApiGatewayDeployment1768496051434": {
             "Type": "AWS::ApiGateway::Deployment",
             "Properties": {
               "RestApiId": {
@@ -716,7 +716,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersionUe06rfl8V4vHmS8Po3Gm7DvaKiRwlzJACCYf0ZHZ2O8"
+              "Ref": "ApiLambdaVersionw7U3LbvtRBidgSKeLorZW3ghTkTjKwG84qQHu3vbJrE"
             },
             "Export": {
               "Name": "sls-doctor-visit-logger-dev-ApiLambdaFunctionQualifiedArn"
@@ -896,7 +896,7 @@
         "timeout": 30,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersionUe06rfl8V4vHmS8Po3Gm7DvaKiRwlzJACCYf0ZHZ2O8"
+        "versionLogicalId": "ApiLambdaVersionw7U3LbvtRBidgSKeLorZW3ghTkTjKwG84qQHu3vbJrE"
       }
     },
     "resources": {
@@ -1119,7 +1119,7 @@
     "artifact": "/home/senuda/Documents/Training/Doc-DB/server/.serverless/doctor-visit-logger.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/doctor-visit-logger/dev/1768032027945-2026-01-10T08:00:27.945Z",
+    "artifactDirectoryName": "serverless/doctor-visit-logger/dev/1768496056764-2026-01-15T16:54:16.764Z",
     "artifact": "doctor-visit-logger.zip"
   }
 }

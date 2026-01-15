@@ -118,6 +118,10 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [investigationInput, setInvestigationInput] = useState(''); // Input for "Investigations Results" section
 	const [investigationResultInput, setInvestigationResultInput] = useState('');
 	const [investigationDateInput, setInvestigationDateInput] = useState('');
+	const [bloodPressureReadings, setBloodPressureReadings] = useState([]); // Array of {reading, date}
+	const [bloodPressureInput, setBloodPressureInput] = useState('');
+	const [bloodPressureDateInput, setBloodPressureDateInput] = useState('');
+	const [showBloodPressureHistory, setShowBloodPressureHistory] = useState(false);
 	const [selectedInvestigationForResult, setSelectedInvestigationForResult] = useState(null);
 	const [showInvestigationsToDo, setShowInvestigationsToDo] = useState(false);
 	const [showInvestigationHistory, setShowInvestigationHistory] = useState(false);
@@ -287,10 +291,41 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					});
 					setInvestigations(allInvestigationResults);
 				}
+
+				// Load all blood pressure readings from all visits
+				if (patientLookup.visits) {
+					const allBPReadings = [];
+					patientLookup.visits.forEach(visit => {
+						if (visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0) {
+							visit.bloodPressureReadings.forEach(bp => {
+								const normalizedBP = {
+									reading: bp.reading || '',
+									date: bp.date || '',
+									isHistorical: true
+								};
+								if (normalizedBP.reading) {
+									const exists = allBPReadings.some(existing => 
+										existing.reading === normalizedBP.reading && existing.date === normalizedBP.date
+									);
+									if (!exists) {
+										allBPReadings.push(normalizedBP);
+									}
+								}
+							});
+						}
+					});
+					allBPReadings.sort((a, b) => {
+						if (!a.date) return 1;
+						if (!b.date) return -1;
+						return new Date(b.date) - new Date(a.date);
+					});
+					setBloodPressureReadings(allBPReadings);
+				}
 			} else {
-				// No patient or no visits, clear medicines and investigations
+				// No patient or no visits, clear medicines, investigations and BP
 				setSelectedMedicines([]);
 				setInvestigations([]);
+				setBloodPressureReadings([]);
 			}
 		}, [patientLookup]);
 
@@ -613,11 +648,16 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		// Allow same medicine to be added multiple times with different dosages
 		// Use timestamp to create unique keys for duplicate medicines
 		const uniqueKey = `${medicineId}_${Date.now()}`;
+		
+		// Check if medicine is thyroxine - add µg symbol to dosage
+		const medicine = medicines.find(m => m.id === medicineId);
+		const isThyroxine = medicine && medicine.name.toLowerCase().includes('thyroxin');
+		
 		setSelectedMedicines([...selectedMedicines, { 
 			id: medicineId,
 			uniqueKey: uniqueKey, // For React key and removal
 			brand: brand.trim(), 
-			dosage: '',
+			dosage: isThyroxine ? 'µg' : '',
 			duration: '',
 			durationUnit: 'months'
 		}]);
@@ -726,6 +766,40 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 
 	function removeInvestigation(index) {
 		setInvestigationsToDo(investigationsToDo.filter((_, i) => i !== index));
+	}
+
+	// Blood pressure functions
+	function addBloodPressureReading() {
+		if (!bloodPressureInput.trim() || !bloodPressureDateInput.trim()) {
+			return;
+		}
+		
+		const dateToUse = bloodPressureDateInput.trim() || new Date().toISOString().split('T')[0];
+		
+		const newReading = {
+			reading: bloodPressureInput.trim(),
+			date: dateToUse,
+			isHistorical: false
+		};
+		
+		// Check if reading with same date exists, if so update it
+		const existingIndex = bloodPressureReadings.findIndex(bp => bp.date === newReading.date);
+		
+		if (existingIndex >= 0) {
+			const updated = [...bloodPressureReadings];
+			updated[existingIndex] = newReading;
+			setBloodPressureReadings(updated);
+		} else {
+			setBloodPressureReadings([...bloodPressureReadings, newReading]);
+		}
+		
+		// Reset form
+		setBloodPressureInput('');
+		setBloodPressureDateInput('');
+	}
+
+	function removeBloodPressureReading(index) {
+		setBloodPressureReadings(bloodPressureReadings.filter((_, i) => i !== index));
 	}
 
 	// Investigation results functions
@@ -901,6 +975,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					presentingComplaint: presentingComplaint.trim(),
 					examinationFindings: examinationFindings.trim(),
 					investigations: investigations, // Array of investigation results
+					bloodPressureReadings: bloodPressureReadings, // Array of blood pressure readings
 					investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 					notes: doctorsNotes.trim(),
 					generateReferralLetter: generateReferralLetter,
@@ -989,6 +1064,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				presentingComplaint: presentingComplaint.trim(),
 				examinationFindings: examinationFindings.trim(),
 				investigations: investigations, // Array of investigation results
+				bloodPressureReadings: showBloodPressureHistory ? bloodPressureReadings : [], // Array of blood pressure readings
 				investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 				referralLetter: generateReferralLetter ? {
 					referralDoctorName: referralDoctorName.trim(),
@@ -2348,6 +2424,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																presentingComplaint: v.presentingComplaint || '',
 																examinationFindings: v.examinationFindings || '',
 																investigations: Array.isArray(v.investigations) ? v.investigations : (v.investigations ? [{ investigationName: v.investigations, result: '', date: '' }] : []),
+																bloodPressureReadings: v.bloodPressureReadings || [],
 																investigationsToDo: v.investigationsToDo || []
 															},
 															medicines: (v.prescriptions || []).map(p => ({ 
@@ -3651,6 +3728,183 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 										)}
 									</div>
 
+									{/* Blood Pressure Section */}
+									<div style={{ 
+										marginTop: 24,
+										paddingTop: 24,
+										borderTop: patientLookup ? '2px solid rgba(229, 62, 62, 0.3)' : '1px solid #e2e8f0'
+									}}>
+										<div className="form-field">
+											<label style={{ 
+												display: 'flex', 
+												alignItems: 'center', 
+												gap: 10,
+												fontSize: '14px', 
+												fontWeight: 600, 
+												marginBottom: 12,
+												color: patientLookup ? '#991b1b' : '#374151',
+												cursor: 'pointer'
+											}}>
+												<input
+													type="checkbox"
+													checked={showBloodPressureHistory}
+													onChange={e => {
+														setShowBloodPressureHistory(e.target.checked);
+														if (e.target.checked && !bloodPressureDateInput) {
+															setBloodPressureDateInput(new Date().toISOString().split('T')[0]);
+														}
+													}}
+													style={{ 
+														width: '18px', 
+														height: '18px', 
+														cursor: 'pointer',
+														accentColor: patientLookup ? '#dc2626' : '#667eea'
+													}}
+												/>
+												<span>🩺 Blood Pressure</span>
+											</label>
+											{showBloodPressureHistory && (
+												<div style={{ 
+													marginTop: 16, 
+													padding: '16px', 
+													background: '#fef2f2', 
+													border: '1px solid #fecaca', 
+													borderRadius: '8px' 
+												}}>
+													{/* Blood Pressure History Table */}
+													{bloodPressureReadings.length > 0 && (
+														<div style={{ marginBottom: 16 }}>
+															<div style={{ 
+																fontWeight: 600, 
+																fontSize: '13px', 
+																marginBottom: 8,
+																color: '#991b1b'
+															}}>
+																Blood Pressure History:
+															</div>
+															<div style={{ 
+																background: 'white', 
+																border: '1px solid #fecaca', 
+																borderRadius: '6px',
+																overflow: 'hidden'
+															}}>
+																<table style={{ 
+																	width: '100%', 
+																	borderCollapse: 'collapse',
+																	fontSize: '13px'
+																}}>
+																	<thead>
+																		<tr style={{ background: '#fee2e2' }}>
+																			<th style={{ 
+																				padding: '10px 12px', 
+																				textAlign: 'left',
+																				fontWeight: 600,
+																				color: '#991b1b',
+																				borderBottom: '1px solid #fecaca'
+																			}}>
+																				Reading
+																			</th>
+																			<th style={{ 
+																				padding: '10px 12px', 
+																				textAlign: 'left',
+																				fontWeight: 600,
+																				color: '#991b1b',
+																				borderBottom: '1px solid #fecaca',
+																				width: '120px'
+																			}}>
+																				Date
+																			</th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		{bloodPressureReadings.map((bp, index) => (
+																			<tr key={index} style={{ 
+																				borderBottom: index < bloodPressureReadings.length - 1 ? '1px solid #fecaca' : 'none',
+																				background: bp.isHistorical ? '#fff' : '#fef3c7'
+																			}}>
+																				<td style={{ padding: '10px 12px', color: '#1e293b' }}>
+																					{bp.reading}
+																				</td>
+																				<td style={{ padding: '10px 12px', color: '#64748b' }}>
+																					{new Date(bp.date).toLocaleDateString('en-GB')}
+																				</td>
+																			</tr>
+																		))}
+																	</tbody>
+																</table>
+															</div>
+														</div>
+													)}
+
+													{/* Add Blood Pressure Input */}
+													<div style={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: '8px', alignItems: 'end' }}>
+														<input
+															type="text"
+															value={bloodPressureInput}
+															onChange={e => {
+																setBloodPressureInput(e.target.value);
+																if (!bloodPressureDateInput) {
+																	setBloodPressureDateInput(new Date().toISOString().split('T')[0]);
+																}
+															}}
+															onFocus={() => {
+																if (!bloodPressureDateInput) {
+																	setBloodPressureDateInput(new Date().toISOString().split('T')[0]);
+																}
+															}}
+															placeholder="e.g., 120/80 mmHg"
+															style={{ 
+																width: '100%',
+																padding: '12px 14px', 
+																fontSize: '15px',
+																border: '1px solid #fecaca',
+																borderRadius: '8px',
+																boxSizing: 'border-box',
+																background: 'white'
+															}}
+														/>
+														<input
+															type="date"
+															value={bloodPressureDateInput}
+															onChange={e => setBloodPressureDateInput(e.target.value)}
+															max={new Date().toISOString().split('T')[0]}
+															style={{ 
+																width: '100%',
+																padding: '12px 14px', 
+																fontSize: '15px',
+																border: '1px solid #fecaca',
+																borderRadius: '8px',
+																boxSizing: 'border-box',
+																background: 'white'
+															}}
+														/>
+														<button
+															type="button"
+															onClick={addBloodPressureReading}
+															disabled={!bloodPressureInput.trim() || !bloodPressureDateInput.trim()}
+															style={{
+																padding: '12px 20px',
+																background: (bloodPressureInput.trim() && bloodPressureDateInput.trim())
+																	? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+																	: '#cbd5e1',
+																border: 'none',
+																borderRadius: '8px',
+																color: 'white',
+																fontSize: '14px',
+																fontWeight: 600,
+																cursor: (bloodPressureInput.trim() && bloodPressureDateInput.trim()) ? 'pointer' : 'not-allowed',
+																transition: 'all 0.2s',
+																whiteSpace: 'nowrap'
+															}}
+														>
+															Add
+														</button>
+													</div>
+												</div>
+											)}
+										</div>
+									</div>
+
 									{/* Investigations To Do Section */}
 									<div style={{ 
 										marginTop: 24,
@@ -4887,24 +5141,23 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				</div>
 			)}
 
-			{/* Prescription modal for newly added visit */}
-			<PrescriptionModal
-				open={showModal && !!lastVisit && !!lastPatient}
-				onClose={() => setShowModal(false)}
-				doctorName={user?.name || user?.username}
-				patient={lastPatient || { nic, name, age }}
-				visit={{ 
-					date: lastVisit?.date,
-					presentingComplaint: lastVisit?.presentingComplaint || '',
-					examinationFindings: lastVisit?.examinationFindings || '',
-					investigations: lastVisit?.investigations || '',
-					investigationsToDo: lastVisit?.investigationsToDo || []
-				}}
-				medicines={lastVisit?.medicines || []}
-				notes={lastVisit?.notes || ''}
-			/>
-
-			{/* Prescription modal for history visits */}
+		{/* Prescription modal for newly added visit */}
+		<PrescriptionModal
+			open={showModal && !!lastVisit && !!lastPatient}
+			onClose={() => setShowModal(false)}
+			doctorName={user?.name || user?.username}
+			patient={lastPatient || { nic, name, age }}
+			visit={{ 
+				date: lastVisit?.date,
+				presentingComplaint: lastVisit?.presentingComplaint || '',
+				examinationFindings: lastVisit?.examinationFindings || '',
+				investigations: lastVisit?.investigations || '',
+				bloodPressureReadings: lastVisit?.bloodPressureReadings || [],
+				investigationsToDo: lastVisit?.investigationsToDo || []
+			}}
+			medicines={lastVisit?.medicines || []}
+			notes={lastVisit?.notes || ''}
+		/>			{/* Prescription modal for history visits */}
 			<PrescriptionModal
 				open={historyModalOpen && !!historyModalData}
 				onClose={() => setHistoryModalOpen(false)}

@@ -74,7 +74,7 @@ export async function apiCreateInvestigation(token, { name, category }) {
 	return await res.json();
 }
 
-export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
 	const res = await fetch(`${API_BASE}/api/visits`, {
 		method: 'POST',
 		headers: {
@@ -95,6 +95,7 @@ export async function apiCreateVisit(token, { patientId, name, birthday, phoneNu
 			presentingComplaint: presentingComplaint || '',
 			examinationFindings: examinationFindings || '',
 			investigations: investigations || '',
+			bloodPressureReadings: bloodPressureReadings || [],
 			investigationsToDo: investigationsToDo || [],
 			notes: notes || '',
 			generateReferralLetter: generateReferralLetter || false,
@@ -106,7 +107,7 @@ export async function apiCreateVisit(token, { patientId, name, birthday, phoneNu
 	return await res.json();
 }
 
-export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
 	const res = await fetch(`${API_BASE}/api/visits/${visitId}`, {
 		method: 'PUT',
 		headers: {
@@ -118,6 +119,7 @@ export async function apiUpdateVisit(token, visitId, { prescriptions, presenting
 			presentingComplaint: presentingComplaint || '',
 			examinationFindings: examinationFindings || '',
 			investigations: investigations || '',
+			bloodPressureReadings: bloodPressureReadings || [],
 			investigationsToDo: investigationsToDo || [],
 			notes: notes || '',
 			generateReferralLetter: generateReferralLetter || false,

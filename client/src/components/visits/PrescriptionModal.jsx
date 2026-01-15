@@ -6,20 +6,23 @@ export default function PrescriptionModal({ open, onClose, doctorName, patient, 
 
 	useEffect(() => {
 		if (open && iframeRef.current && patient && visit) {
-			const investigationsData = Array.isArray(visit.investigations) 
-				? visit.investigations 
-				: (visit.investigations ? [{ investigationName: visit.investigations, result: '', date: '' }] : []);
-			const html = buildPrescriptionHTML({ 
-				doctorName, 
-				patient, 
-				visit, 
-				medicines, 
-				notes: notes || '',
-				presentingComplaint: visit.presentingComplaint || '',
-				examinationFindings: visit.examinationFindings || '',
-				investigations: investigationsData,
-				investigationsToDo: visit.investigationsToDo || []
-			});
+		const investigationsData = Array.isArray(visit.investigations) 
+			? visit.investigations 
+			: (visit.investigations ? [{ investigationName: visit.investigations, result: '', date: '' }] : []);
+		const html = buildPrescriptionHTML({ 
+			doctorName, 
+			patient, 
+			visit: {
+				...visit,
+				bloodPressureReadings: visit.bloodPressureReadings || []
+			}, 
+			medicines, 
+			notes: notes || '',
+			presentingComplaint: visit.presentingComplaint || '',
+			examinationFindings: visit.examinationFindings || '',
+			investigations: investigationsData,
+			investigationsToDo: visit.investigationsToDo || []
+		});
 			const iframe = iframeRef.current;
 			const doc = iframe.contentDocument || iframe.contentWindow.document;
 			doc.open();

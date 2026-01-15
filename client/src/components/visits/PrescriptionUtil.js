@@ -30,13 +30,42 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				align-items: flex-end;
 				margin-top: 45px;
 			}
-			.patient-info { 
+			.patient-info-wrapper {
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
 				margin-bottom: 10px;
+				gap: 5px;
+				min-height: 60px;
+			}
+			.patient-info { 
+				flex: 0 0 auto;
+				min-width: 36%;
 				font-size: 16px;
 				line-height: 1.5;
 			}
 			.patient-info div {
 				margin-bottom: 2px;
+			}
+			.past-medical-history {
+				flex: 1;
+				max-width: 60%;
+				font-size: 13px;
+				line-height: 1.4;
+				text-align: right;
+				padding-left: 5px;
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			.past-medical-history-label {
+				font-weight: 600;
+				margin-bottom: 4px;
+				font-size: 14px;
+			}
+			.blood-pressure-section {
+				font-size: 13px;
+				color: #333;
+				margin-top: 6px;
 			}
 			.clinical-info {
 				margin-bottom: 12px;
@@ -136,14 +165,30 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 			</head>
 			<body>
 				<div class="prescription-container">
-					<div class="patient-info">
-					<div>${escapeHtml(patient.name)}</div>
+					<div class="patient-info-wrapper">
+						<div class="patient-info">
+							<div>${escapeHtml(patient.name)}</div>
 					<div>${escapeHtml(patient.nic)}</div>
 					<div>${escapeHtml(String(patient.age))}yrs${patient.gender ? ', ' + escapeHtml(patient.gender) : ''}</div>
 					${notes && notes.trim() ? `<div style="margin-top: 8px; font-size: 14px;">${escapeHtml(notes)}</div>` : ''}
 				</div>
-				
-				<div class="divider"></div>					<div class="section-title">Treatment:</div>
+				${patient.pastMedicalHistory && patient.pastMedicalHistory.trim() ? `
+					<div class="past-medical-history">
+						<div class="past-medical-history-label">Past Medical History:</div>
+						<div>${escapeHtml(patient.pastMedicalHistory)}</div>
+					${visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+						<div class="blood-pressure-section">
+							Blood Pressure: ${escapeHtml(visit.bloodPressureReadings[0].reading)}
+						</div>
+					` : ''}
+					</div>
+				` : visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+					<div class="past-medical-history">
+						<div class="blood-pressure-label">Blood Pressure:</div>
+						<div>${escapeHtml(visit.bloodPressureReadings[0].reading)} (${new Date(visit.bloodPressureReadings[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})</div>
+					</div>
+				` : ''}
+			</div>				<div class="divider"></div>					<div class="section-title">Treatment:</div>
 					<ol class="treatment-list${useTwoColumns ? ' two-columns' : ''}">
 						${medicinesList}
 					</ol>
