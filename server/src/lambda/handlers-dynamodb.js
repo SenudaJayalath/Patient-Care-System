@@ -422,6 +422,7 @@ export async function createVisitHandler(event) {
 			examinationFindings, 
 			investigations, 
 			bloodPressureReadings, // Array of blood pressure readings
+			weightReadings, // Array of weight readings
 			investigationsToDo, // Array of investigations to do
 			notes, 
 			generateReferralLetter, 
@@ -672,6 +673,7 @@ export async function createVisitHandler(event) {
 			examinationFindings: examinationFindings || '',
 			investigations: Array.isArray(investigations) ? investigations : (investigations ? [{ investigationName: investigations, result: '', date: '' }] : []),
 			bloodPressureReadings: Array.isArray(bloodPressureReadings) ? bloodPressureReadings : [],
+			weightReadings: Array.isArray(weightReadings) ? weightReadings : [],
 			investigationsToDo: Array.isArray(investigationsToDo) ? investigationsToDo : [],
 			prescriptions: prescriptions.map(p => ({
 				medicine_id: p.medicineId,
@@ -697,6 +699,7 @@ export async function createVisitHandler(event) {
 			examinationFindings: examinationFindings || '',
 			investigations: Array.isArray(investigations) ? investigations : (investigations ? [{ investigationName: investigations, result: '', date: '' }] : []),
 			bloodPressureReadings: Array.isArray(bloodPressureReadings) ? bloodPressureReadings : [],
+			weightReadings: Array.isArray(weightReadings) ? weightReadings : [],
 			investigationsToDo: Array.isArray(investigationsToDo) ? investigationsToDo : [],
 			prescriptions: prescriptions.map(p => {
 				const med = medicineMap.get(p.medicineId);
@@ -783,6 +786,7 @@ export async function updateVisitHandler(event) {
 			examinationFindings, 
 			investigations, 
 			bloodPressureReadings,
+			weightReadings,
 			investigationsToDo,
 			notes, 
 			generateReferralLetter, 
@@ -809,6 +813,7 @@ export async function updateVisitHandler(event) {
 			examinationFindings: examinationFindings || '',
 			investigations: Array.isArray(investigations) ? investigations : (investigations ? [{ investigationName: investigations, result: '', date: '' }] : []),
 			bloodPressureReadings: Array.isArray(bloodPressureReadings) ? bloodPressureReadings : [],
+			weightReadings: Array.isArray(weightReadings) ? weightReadings : [],
 			investigationsToDo: Array.isArray(investigationsToDo) ? investigationsToDo : [],
 			prescriptions: prescriptions.map(p => ({
 				medicine_id: p.medicineId,
@@ -1020,6 +1025,7 @@ export async function getPatientHandler(event) {
 				investigations: Array.isArray(v.investigations) ? v.investigations : (v.investigations ? [{ investigationName: v.investigations, result: '', date: '' }] : []),
 				investigationsToDo: Array.isArray(v.investigationsToDo) ? v.investigationsToDo : [],
 				bloodPressureReadings: Array.isArray(v.bloodPressureReadings) ? v.bloodPressureReadings : [],
+				weightReadings: Array.isArray(v.weightReadings) ? v.weightReadings : [],
 				prescriptions: (v.prescriptions || []).map(p => {
 					const med = medicineMap.get(p.medicine_id);
 					return med ? { 

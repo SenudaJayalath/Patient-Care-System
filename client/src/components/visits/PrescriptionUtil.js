@@ -1,4 +1,4 @@
-export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, notes, presentingComplaint, examinationFindings, investigations, investigationsToDo, allergies }) {
+export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, notes, presentingComplaint, examinationFindings, investigations, investigationsToDo, allergies, weightReadings }) {
 	const styles = `
 		<style>
 			@page { 
@@ -66,6 +66,11 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				font-size: 13px;
 				color: #333;
 				margin-top: 6px;
+			}
+			.weight-section {
+				font-size: 13px;
+				color: #333;
+				margin-top: 4px;
 			}
 			.allergies-section {
 				font-size: 13px;
@@ -192,6 +197,11 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 		</div>`
 		: '';
 		
+	// Get most recent weight reading
+	const mostRecentWeight = weightReadings && Array.isArray(weightReadings) && weightReadings.length > 0 
+		? weightReadings[0] 
+		: null;
+		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
 		? `<div class="investigations-section">
 			<strong>${escapeHtml(investigationsToDo.join(', '))}</strong>
@@ -223,11 +233,24 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 							Blood Pressure: ${escapeHtml(visit.bloodPressureReadings[0].reading)}
 						</div>
 					` : ''}
+					${mostRecentWeight ? `
+						<div class="weight-section">
+							Weight: ${escapeHtml(mostRecentWeight.weight)}
+						</div>
+					` : ''}
 					</div>
-				` : visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+				` : (visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0) || mostRecentWeight ? `
 					<div class="past-medical-history">
-						<div class="blood-pressure-label">Blood Pressure:</div>
-						<div>${escapeHtml(visit.bloodPressureReadings[0].reading)} (${new Date(visit.bloodPressureReadings[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})</div>
+						${visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+							<div class="blood-pressure-section">
+								Blood Pressure: ${escapeHtml(visit.bloodPressureReadings[0].reading)}
+							</div>
+						` : ''}
+						${mostRecentWeight ? `
+							<div class="weight-section">
+								Weight: ${escapeHtml(mostRecentWeight.weight)}
+							</div>
+						` : ''}
 					</div>
 				` : ''}
 			</div>				<div class="divider"></div>					${medicines.length > 0 ? `<div class="section-title">Treatment:</div>

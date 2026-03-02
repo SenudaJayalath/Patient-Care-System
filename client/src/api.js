@@ -74,7 +74,7 @@ export async function apiCreateInvestigation(token, { name, category }) {
 	return await res.json();
 }
 
-export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody, updatePatientInfoOnly }) {
+export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, weightReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody, updatePatientInfoOnly }) {
 	const payload = { 
 		patientId: patientId || undefined,
 		name, 
@@ -90,6 +90,7 @@ export async function apiCreateVisit(token, { patientId, name, birthday, phoneNu
 		examinationFindings: examinationFindings || '',
 		investigations: investigations || '',
 		bloodPressureReadings: bloodPressureReadings || [],
+		weightReadings: weightReadings || [],
 		investigationsToDo: investigationsToDo || [],
 		notes: notes || '',
 		generateReferralLetter: generateReferralLetter || false,
@@ -110,13 +111,14 @@ export async function apiCreateVisit(token, { patientId, name, birthday, phoneNu
 	return await res.json();
 }
 
-export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
-	const payload = { 
+export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, weightReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+	const payload = {
 		prescriptions: Array.isArray(prescriptions) ? prescriptions : [],
 		presentingComplaint: presentingComplaint || '',
 		examinationFindings: examinationFindings || '',
 		investigations: investigations || '',
 		bloodPressureReadings: bloodPressureReadings || [],
+		weightReadings: weightReadings || [],
 		investigationsToDo: investigationsToDo || [],
 		notes: notes || '',
 		generateReferralLetter: generateReferralLetter || false,

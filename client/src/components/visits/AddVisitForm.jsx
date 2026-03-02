@@ -122,6 +122,10 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [bloodPressureInput, setBloodPressureInput] = useState('');
 	const [bloodPressureDateInput, setBloodPressureDateInput] = useState('');
 	const [showBloodPressureHistory, setShowBloodPressureHistory] = useState(false);
+	const [weightReadings, setWeightReadings] = useState([]); // Array of {weight, date}
+	const [weightInput, setWeightInput] = useState('');
+	const [weightDateInput, setWeightDateInput] = useState('');
+	const [showWeightHistory, setShowWeightHistory] = useState(false);
 	const [selectedInvestigationForResult, setSelectedInvestigationForResult] = useState(null);
 	const [showInvestigationsToDo, setShowInvestigationsToDo] = useState(false);
 	const [showInvestigationHistory, setShowInvestigationHistory] = useState(false);
@@ -321,11 +325,42 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					});
 					setBloodPressureReadings(allBPReadings);
 				}
+
+				// Load all weight readings from all visits
+				if (patientLookup.visits) {
+					const allWeightReadings = [];
+					patientLookup.visits.forEach(visit => {
+						if (visit.weightReadings && Array.isArray(visit.weightReadings) && visit.weightReadings.length > 0) {
+							visit.weightReadings.forEach(w => {
+								const normalizedWeight = {
+									weight: w.weight || '',
+									date: w.date || '',
+									isHistorical: true
+								};
+								if (normalizedWeight.weight) {
+									const exists = allWeightReadings.some(existing => 
+										existing.weight === normalizedWeight.weight && existing.date === normalizedWeight.date
+									);
+									if (!exists) {
+										allWeightReadings.push(normalizedWeight);
+									}
+								}
+							});
+						}
+					});
+					allWeightReadings.sort((a, b) => {
+						if (!a.date) return 1;
+						if (!b.date) return -1;
+						return new Date(b.date) - new Date(a.date);
+					});
+					setWeightReadings(allWeightReadings);
+				}
 			} else {
-				// No patient or no visits, clear medicines, investigations and BP
+				// No patient or no visits, clear medicines, investigations, BP and weight
 				setSelectedMedicines([]);
 				setInvestigations([]);
 				setBloodPressureReadings([]);
+				setWeightReadings([]);
 			}
 		}, [patientLookup]);
 
@@ -491,6 +526,14 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setInvestigationsToDo([]);
 		setShowInvestigationsToDo(false);
 		setShowInvestigationHistory(false);
+		setBloodPressureReadings([]);
+		setBloodPressureInput('');
+		setBloodPressureDateInput('');
+		setShowBloodPressureHistory(false);
+		setWeightReadings([]);
+		setWeightInput('');
+		setWeightDateInput('');
+		setShowWeightHistory(false);
 		setDoctorsNotes('');
 		setGenerateReferralLetter(false);
 		setReferralDoctorName('');
@@ -802,6 +845,40 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setBloodPressureReadings(bloodPressureReadings.filter((_, i) => i !== index));
 	}
 
+	// Weight functions
+	function addWeightReading() {
+		if (!weightInput.trim() || !weightDateInput.trim()) {
+			return;
+		}
+		
+		const dateToUse = weightDateInput.trim() || new Date().toISOString().split('T')[0];
+		
+		const newReading = {
+			weight: weightInput.trim(),
+			date: dateToUse,
+			isHistorical: false
+		};
+		
+		// Check if reading with same date exists, if so update it
+		const existingIndex = weightReadings.findIndex(w => w.date === newReading.date);
+		
+		if (existingIndex >= 0) {
+			const updated = [...weightReadings];
+			updated[existingIndex] = newReading;
+			setWeightReadings(updated);
+		} else {
+			setWeightReadings([...weightReadings, newReading]);
+		}
+		
+		// Reset form
+		setWeightInput('');
+		setWeightDateInput('');
+	}
+
+	function removeWeightReading(index) {
+		setWeightReadings(weightReadings.filter((_, i) => i !== index));
+	}
+
 	// Investigation results functions
 	function selectInvestigationForResult(inv) {
 		setSelectedInvestigationForResult(inv);
@@ -980,6 +1057,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					examinationFindings: examinationFindings.trim(),
 					investigations: investigations, // Array of investigation results
 					bloodPressureReadings: bloodPressureReadings, // Array of blood pressure readings
+					weightReadings: weightReadings, // Array of weight readings
 					investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 					notes: doctorsNotes.trim(),
 					generateReferralLetter: generateReferralLetter,
@@ -1069,6 +1147,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				examinationFindings: examinationFindings.trim(),
 				investigations: investigations, // Array of investigation results
 				bloodPressureReadings: showBloodPressureHistory ? bloodPressureReadings : [], // Array of blood pressure readings
+				weightReadings: showWeightHistory ? weightReadings : [], // Array of weight readings
 				investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 				referralLetter: generateReferralLetter ? {
 					referralDoctorName: referralDoctorName.trim(),
@@ -2430,6 +2509,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																examinationFindings: v.examinationFindings || '',
 																investigations: Array.isArray(v.investigations) ? v.investigations : (v.investigations ? [{ investigationName: v.investigations, result: '', date: '' }] : []),
 																bloodPressureReadings: v.bloodPressureReadings || [],
+																weightReadings: v.weightReadings || [],
 																investigationsToDo: v.investigationsToDo || []
 															},
 															medicines: (v.prescriptions || []).map(p => ({ 
@@ -3910,6 +3990,184 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 										</div>
 									</div>
 
+									{/* Weight Section */}
+									<div style={{ 
+										marginTop: 24,
+										paddingTop: 24,
+										borderTop: patientLookup ? '2px solid rgba(34, 197, 94, 0.3)' : '1px solid #e2e8f0'
+									}}>
+										<div className="form-field">
+											<label style={{ 
+												display: 'flex', 
+												alignItems: 'center', 
+												gap: 10,
+												fontSize: '14px', 
+												fontWeight: 600, 
+												marginBottom: 12,
+												color: patientLookup ? '#166534' : '#374151',
+												cursor: 'pointer'
+											}}>
+												<input
+													type="checkbox"
+													checked={showWeightHistory}
+													onChange={e => {
+														setShowWeightHistory(e.target.checked);
+														if (e.target.checked && !weightDateInput) {
+															setWeightDateInput(new Date().toISOString().split('T')[0]);
+														}
+													}}
+													style={{ 
+														width: '18px', 
+														height: '18px', 
+														cursor: 'pointer',
+														accentColor: patientLookup ? '#22c55e' : '#667eea'
+													}}
+												/>
+												<span>⚖️ Weight</span>
+											</label>
+											{showWeightHistory && (
+												<div style={{ 
+													marginTop: 16, 
+													padding: '16px', 
+													background: '#f0fdf4', 
+													border: '1px solid #bbf7d0', 
+													borderRadius: '8px' 
+												}}>
+													{/* Weight History Table */}
+													{weightReadings.length > 0 && (
+														<div style={{ marginBottom: '16px' }}>
+															<div style={{ 
+																fontSize: '13px', 
+																fontWeight: 600, 
+																color: '#166534', 
+																marginBottom: '8px' 
+															}}>
+																Weight History:
+															</div>
+															<div style={{ 
+																maxHeight: '150px', 
+																overflowY: 'auto',
+																border: '1px solid #bbf7d0',
+																borderRadius: '6px',
+																background: 'white'
+															}}>
+																<table style={{ 
+																	width: '100%', 
+																	borderCollapse: 'collapse',
+																	fontSize: '13px'
+																}}>
+																	<thead>
+																		<tr style={{ background: '#dcfce7' }}>
+																			<th style={{ 
+																				padding: '10px 12px', 
+																				textAlign: 'left',
+																				fontWeight: 600,
+																				color: '#166534',
+																				borderBottom: '1px solid #bbf7d0'
+																			}}>
+																				Weight
+																			</th>
+																			<th style={{ 
+																				padding: '10px 12px', 
+																				textAlign: 'left',
+																				fontWeight: 600,
+																				color: '#166534',
+																				borderBottom: '1px solid #bbf7d0',
+																				width: '120px'
+																			}}>
+																				Date
+																			</th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		{weightReadings.map((w, index) => (
+																			<tr key={index} style={{ 
+																				borderBottom: index < weightReadings.length - 1 ? '1px solid #bbf7d0' : 'none',
+																				background: w.isHistorical ? '#fff' : '#fef9c3'
+																			}}>
+																				<td style={{ padding: '10px 12px', color: '#1e293b' }}>
+																					{w.weight}
+																				</td>
+																				<td style={{ padding: '10px 12px', color: '#64748b' }}>
+																					{new Date(w.date).toLocaleDateString('en-GB')}
+																				</td>
+																			</tr>
+																		))}
+																	</tbody>
+																</table>
+															</div>
+														</div>
+													)}
+
+													{/* Add Weight Input */}
+													<div style={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: '8px', alignItems: 'end' }}>
+														<input
+															type="text"
+															value={weightInput}
+															onChange={e => {
+																setWeightInput(e.target.value);
+																if (!weightDateInput) {
+																	setWeightDateInput(new Date().toISOString().split('T')[0]);
+																}
+															}}
+															onFocus={() => {
+																if (!weightDateInput) {
+																	setWeightDateInput(new Date().toISOString().split('T')[0]);
+																}
+															}}
+															placeholder="e.g., 70 kg"
+															style={{ 
+																width: '100%',
+																padding: '12px 14px', 
+																fontSize: '15px',
+																border: '1px solid #bbf7d0',
+																borderRadius: '8px',
+																boxSizing: 'border-box',
+																background: 'white'
+															}}
+														/>
+														<input
+															type="date"
+															value={weightDateInput}
+															onChange={e => setWeightDateInput(e.target.value)}
+															max={new Date().toISOString().split('T')[0]}
+															style={{ 
+																width: '100%',
+																padding: '12px 14px', 
+																fontSize: '15px',
+																border: '1px solid #bbf7d0',
+																borderRadius: '8px',
+																boxSizing: 'border-box',
+																background: 'white'
+															}}
+														/>
+														<button
+															type="button"
+															onClick={addWeightReading}
+															disabled={!weightInput.trim() || !weightDateInput.trim()}
+															style={{
+																padding: '12px 20px',
+																background: (weightInput.trim() && weightDateInput.trim())
+																	? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+																	: '#cbd5e1',
+																border: 'none',
+																borderRadius: '8px',
+																color: 'white',
+																fontSize: '14px',
+																fontWeight: 600,
+																cursor: (weightInput.trim() && weightDateInput.trim()) ? 'pointer' : 'not-allowed',
+																transition: 'all 0.2s',
+																whiteSpace: 'nowrap'
+															}}
+														>
+															Add
+														</button>
+													</div>
+												</div>
+											)}
+										</div>
+									</div>
+
 									{/* Investigations To Do Section */}
 									<div style={{ 
 										marginTop: 24,
@@ -5158,6 +5416,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				examinationFindings: lastVisit?.examinationFindings || '',
 				investigations: lastVisit?.investigations || '',
 				bloodPressureReadings: lastVisit?.bloodPressureReadings || [],
+				weightReadings: lastVisit?.weightReadings || [],
 				investigationsToDo: lastVisit?.investigationsToDo || []
 			}}
 			medicines={lastVisit?.medicines || []}
