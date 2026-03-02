@@ -527,8 +527,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		}
 		setSavingPatientInfo(true);
 		try {
-		// Update patient info by creating a visit with empty prescriptions
-		// This will update the patient record without creating a new visit
+		// Update patient info only - no visit created
 		const birthdayISO = birthday.trim() ? convertToYYYYMMDD(birthday.trim()) : undefined;
 		await apiCreateVisit(token, { 
 			patientId: patientId || undefined,
@@ -540,8 +539,9 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 			pastMedicalHistory: pastMedicalHistory.trim(),
 			familyHistory: familyHistory.trim(),
 			allergies: stringifyAllergies(allergies),
-			prescriptions: [], // Empty prescriptions - this will update patient info only
-			notes: '' 
+			prescriptions: [],
+			notes: '',
+			updatePatientInfoOnly: true // Explicit flag to only update patient info without creating a visit
 		});
 			// Refresh patient lookup to update sidebar
 			if (patientId) {
@@ -935,6 +935,10 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				duration: m.duration || '',
 				durationUnit: m.durationUnit || 'months'
 			}));
+			
+			console.log('📋 prescriptionData:', prescriptionData);
+			console.log('📋 prescriptionData is array?', Array.isArray(prescriptionData));
+			console.log('📋 prescriptionData.length:', prescriptionData.length);
 			
 			let res;
 			console.log('🔍 DEBUG: editingVisitId =', editingVisitId);
@@ -2417,7 +2421,8 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																name: patientLookup.name, 
 																age: patientLookup.age,
 																gender: patientLookup.gender || '',
-																pastMedicalHistory: patientLookup.pastMedicalHistory || ''
+																pastMedicalHistory: patientLookup.pastMedicalHistory || '',
+																allergies: patientLookup.allergies || ''
 															},
 															visit: { 
 																date: v.date,

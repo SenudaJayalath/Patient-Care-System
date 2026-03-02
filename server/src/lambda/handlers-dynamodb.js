@@ -426,7 +426,8 @@ export async function createVisitHandler(event) {
 			notes, 
 			generateReferralLetter, 
 			referralDoctorName, 
-			referralLetterBody 
+			referralLetterBody,
+			updatePatientInfoOnly // Explicit flag to only update patient info without creating a visit
 		} = body;
 
 		if (!name || !Array.isArray(prescriptions)) {
@@ -439,11 +440,12 @@ export async function createVisitHandler(event) {
 			age = calculateAge(birthday);
 		}
 		
-		// If prescriptions array is empty, this is a patient info update only (no visit created)
-		const isPatientUpdateOnly = prescriptions.length === 0;
+		// Only skip visit creation if explicitly requested via updatePatientInfoOnly flag
+		// Otherwise, create a visit even without prescriptions (e.g., follow-up consultation, review)
+		const isPatientUpdateOnly = updatePatientInfoOnly === true;
 
 		// Validate prescriptions structure (only if prescriptions are provided)
-		if (!isPatientUpdateOnly) {
+		if (prescriptions.length > 0) {
 			for (const p of prescriptions) {
 				if (!p.medicineId) {
 					return errorResponse('Each prescription must have medicineId', 400);

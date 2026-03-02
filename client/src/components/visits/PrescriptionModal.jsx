@@ -21,7 +21,8 @@ export default function PrescriptionModal({ open, onClose, doctorName, patient, 
 			presentingComplaint: visit.presentingComplaint || '',
 			examinationFindings: visit.examinationFindings || '',
 			investigations: investigationsData,
-			investigationsToDo: visit.investigationsToDo || []
+			investigationsToDo: visit.investigationsToDo || [],
+			allergies: patient.allergies || ''
 		});
 			const iframe = iframeRef.current;
 			const doc = iframe.contentDocument || iframe.contentWindow.document;

@@ -1,4 +1,4 @@
-export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, notes, presentingComplaint, examinationFindings, investigations, investigationsToDo }) {
+export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, notes, presentingComplaint, examinationFindings, investigations, investigationsToDo, allergies }) {
 	const styles = `
 		<style>
 			@page { 
@@ -66,6 +66,18 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				font-size: 13px;
 				color: #333;
 				margin-top: 6px;
+			}
+			.allergies-section {
+				font-size: 13px;
+				color: #333;
+				margin-top: 12px;
+				padding-top: 8px;
+				border-top: 1px solid #e0e0e0;
+			}
+			.allergies-label {
+				font-weight: 600;
+				margin-bottom: 4px;
+				font-size: 14px;
 			}
 			.clinical-info {
 				margin-bottom: 12px;
@@ -141,7 +153,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				: `${escapeHtml(m.name)}${dosage}${duration}`;
 			return `<li>${displayName}</li>`;
 		}).join('')
-		: '<li>No medicines prescribed</li>';
+		: '';
 	
 	// Determine if we need two columns based on number of medicines
 	// A5 can fit approximately 12-15 medicines in single column depending on text length
@@ -149,6 +161,36 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 	const useTwoColumns = medicines.length > 12;
 	
 	const dateStr = new Date(visit.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+	
+	// Parse allergies - can be JSON string or plain text
+	let allergiesList = [];
+	if (allergies) {
+		try {
+			const parsed = JSON.parse(allergies);
+			if (Array.isArray(parsed)) {
+				allergiesList = parsed.map(a => {
+					if (a.type === 'medicine' && a.medicineName) {
+						return `${escapeHtml(a.medicineName)} (medicine)`;
+					} else if (a.type === 'other' && a.text) {
+						return escapeHtml(a.text);
+					}
+					return '';
+				}).filter(Boolean);
+			}
+		} catch {
+			// If not JSON, treat as plain text
+			if (typeof allergies === 'string' && allergies.trim()) {
+				allergiesList = [escapeHtml(allergies.trim())];
+			}
+		}
+	}
+	
+	const allergiesHtml = allergiesList.length > 0
+		? `<div class="allergies-section">
+			<div class="allergies-label">Allergies:</div>
+			<div>${allergiesList.join(', ')}</div>
+		</div>`
+		: '';
 		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
 		? `<div class="investigations-section">
@@ -188,11 +230,12 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 						<div>${escapeHtml(visit.bloodPressureReadings[0].reading)} (${new Date(visit.bloodPressureReadings[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})</div>
 					</div>
 				` : ''}
-			</div>				<div class="divider"></div>					<div class="section-title">Treatment:</div>
+			</div>				<div class="divider"></div>					${medicines.length > 0 ? `<div class="section-title">Treatment:</div>
 					<ol class="treatment-list${useTwoColumns ? ' two-columns' : ''}">
 						${medicinesList}
-					</ol>
+					</ol>` : ''}
 					
+					${allergiesHtml}
 					
 					<div class="date-signature-container">
 						<div class="date-line">${dateStr}</div>

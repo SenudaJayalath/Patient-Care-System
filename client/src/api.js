@@ -74,58 +74,63 @@ export async function apiCreateInvestigation(token, { name, category }) {
 	return await res.json();
 }
 
-export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+export async function apiCreateVisit(token, { patientId, name, birthday, phoneNumber, nic, gender, pastMedicalHistory, familyHistory, allergies, prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody, updatePatientInfoOnly }) {
+	const payload = { 
+		patientId: patientId || undefined,
+		name, 
+		birthday: birthday || undefined,
+		phoneNumber: phoneNumber || undefined,
+		nic: nic || undefined,
+		gender: gender || '',
+		pastMedicalHistory: pastMedicalHistory || '',
+		familyHistory: familyHistory || '',
+		allergies: allergies || '',
+		prescriptions: Array.isArray(prescriptions) ? prescriptions : [],
+		presentingComplaint: presentingComplaint || '',
+		examinationFindings: examinationFindings || '',
+		investigations: investigations || '',
+		bloodPressureReadings: bloodPressureReadings || [],
+		investigationsToDo: investigationsToDo || [],
+		notes: notes || '',
+		generateReferralLetter: generateReferralLetter || false,
+		referralDoctorName: referralDoctorName || '',
+		referralLetterBody: referralLetterBody || '',
+		updatePatientInfoOnly: updatePatientInfoOnly || false
+	};
+	console.log('📤 Sending payload to API:', payload);
 	const res = await fetch(`${API_BASE}/api/visits`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
 		},
-		body: JSON.stringify({ 
-			patientId: patientId || undefined,
-			name, 
-			birthday: birthday || undefined,
-			phoneNumber: phoneNumber || undefined,
-			nic: nic || undefined,
-			gender: gender || '',
-			pastMedicalHistory: pastMedicalHistory || '',
-			familyHistory: familyHistory || '',
-			allergies: allergies || '',
-			prescriptions,
-			presentingComplaint: presentingComplaint || '',
-			examinationFindings: examinationFindings || '',
-			investigations: investigations || '',
-			bloodPressureReadings: bloodPressureReadings || [],
-			investigationsToDo: investigationsToDo || [],
-			notes: notes || '',
-			generateReferralLetter: generateReferralLetter || false,
-			referralDoctorName: referralDoctorName || '',
-			referralLetterBody: referralLetterBody || ''
-		})
+		body: JSON.stringify(payload)
 	});
 	if (!res.ok) throw new Error('Failed to create visit');
 	return await res.json();
 }
 
 export async function apiUpdateVisit(token, visitId, { prescriptions, presentingComplaint, examinationFindings, investigations, bloodPressureReadings, investigationsToDo, notes, generateReferralLetter, referralDoctorName, referralLetterBody }) {
+	const payload = { 
+		prescriptions: Array.isArray(prescriptions) ? prescriptions : [],
+		presentingComplaint: presentingComplaint || '',
+		examinationFindings: examinationFindings || '',
+		investigations: investigations || '',
+		bloodPressureReadings: bloodPressureReadings || [],
+		investigationsToDo: investigationsToDo || [],
+		notes: notes || '',
+		generateReferralLetter: generateReferralLetter || false,
+		referralDoctorName: referralDoctorName || '',
+		referralLetterBody: referralLetterBody || ''
+	};
+	console.log('📤 Sending update payload to API:', payload);
 	const res = await fetch(`${API_BASE}/api/visits/${visitId}`, {
 		method: 'PUT',
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
 		},
-		body: JSON.stringify({ 
-			prescriptions,
-			presentingComplaint: presentingComplaint || '',
-			examinationFindings: examinationFindings || '',
-			investigations: investigations || '',
-			bloodPressureReadings: bloodPressureReadings || [],
-			investigationsToDo: investigationsToDo || [],
-			notes: notes || '',
-			generateReferralLetter: generateReferralLetter || false,
-			referralDoctorName: referralDoctorName || '',
-			referralLetterBody: referralLetterBody || ''
-		})
+		body: JSON.stringify(payload)
 	});
 	if (!res.ok) throw new Error('Failed to update visit');
 	return await res.json();
