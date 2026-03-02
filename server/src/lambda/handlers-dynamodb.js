@@ -141,11 +141,13 @@ export async function medicinesHandler(event) {
 
 		// Get doctor's medicines from single row
 		const medicineRow = await getItem(TABLES.DOCTOR_ITEMS, { doctor_id: doctorId, item_type: 'M' });
-		const medicines = medicineRow && medicineRow.items ? medicineRow.items : [];
+		const allMedicines = medicineRow && medicineRow.items ? medicineRow.items : [];
 		
-		medicines.sort((a, b) => a.name.localeCompare(b.name));
+		// Return ALL medicines including soft-deleted ones
+		// Frontend will filter deleted medicines from dropdown but keep them for history lookups
+		allMedicines.sort((a, b) => a.name.localeCompare(b.name));
 		
-		return successResponse(medicines);
+		return successResponse(allMedicines);
 	} catch (error) {
 		console.error('Medicines error:', error);
 		return errorResponse('Internal server error', 500);
@@ -297,6 +299,153 @@ export async function addBrandToMedicineHandler(event) {
 		return successResponse(updatedMedicine);
 	} catch (error) {
 		console.error('Add brand error:', error);
+		return errorResponse('Internal server error', 500);
+	}
+}
+
+// Soft delete medicine handler - marks medicine as deleted but preserves for history
+export async function deleteMedicineHandler(event) {
+	try {
+		const token = extractToken(event);
+		if (!token) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		const doctorId = await verifyToken(token);
+		if (!doctorId) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		// Extract medicineId from path parameters
+		const medicineId = event.pathParameters?.medicineId;
+		if (!medicineId) {
+			return errorResponse('Medicine ID is required', 400);
+		}
+
+		// Get existing medicine row
+		const medicineRow = await getItem(TABLES.DOCTOR_ITEMS, { doctor_id: doctorId, item_type: 'M' });
+		
+		if (!medicineRow || !medicineRow.items) {
+			return errorResponse('No medicines found', 404);
+		}
+
+		// Find the medicine and mark as deleted (soft delete)
+		let medicineFound = false;
+		const updatedItems = medicineRow.items.map(med => {
+			if (med.id === medicineId) {
+				medicineFound = true;
+				return {
+					...med,
+					isDeleted: true,
+					deletedAt: new Date().toISOString()
+				};
+			}
+			return med;
+		});
+
+		if (!medicineFound) {
+			return errorResponse('Medicine not found', 404);
+		}
+
+		// Update the row
+		await updateItem(
+			TABLES.DOCTOR_ITEMS,
+			{ doctor_id: doctorId, item_type: 'M' },
+			'SET #items = :items, updated_at = :updated_at',
+			{
+				':items': updatedItems,
+				':updated_at': new Date().toISOString()
+			},
+			{
+				'#items': 'items'
+			}
+		);
+
+		return successResponse({ message: 'Medicine deleted successfully' });
+	} catch (error) {
+		console.error('Delete medicine error:', error);
+		return errorResponse('Internal server error', 500);
+	}
+}
+
+// Hard delete brand from medicine handler - removes brand completely (safe because brand is stored as string in prescriptions)
+export async function deleteBrandHandler(event) {
+	try {
+		const token = extractToken(event);
+		if (!token) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		const doctorId = await verifyToken(token);
+		if (!doctorId) {
+			return errorResponse('Unauthorized', 401);
+		}
+
+		// Extract medicineId and brand from path/body
+		const medicineId = event.pathParameters?.medicineId;
+		if (!medicineId) {
+			return errorResponse('Medicine ID is required', 400);
+		}
+
+		const body = JSON.parse(event.body || '{}');
+		const { brand } = body;
+
+		if (!brand || !brand.trim()) {
+			return errorResponse('Brand name is required', 400);
+		}
+
+		// Get existing medicine row
+		const medicineRow = await getItem(TABLES.DOCTOR_ITEMS, { doctor_id: doctorId, item_type: 'M' });
+		
+		if (!medicineRow || !medicineRow.items) {
+			return errorResponse('No medicines found', 404);
+		}
+
+		// Find the medicine and remove the brand
+		let medicineFound = false;
+		let brandFound = false;
+		const updatedItems = medicineRow.items.map(med => {
+			if (med.id === medicineId) {
+				medicineFound = true;
+				const currentBrands = med.brands || [];
+				const brandIndex = currentBrands.findIndex(b => b.toLowerCase() === brand.trim().toLowerCase());
+				if (brandIndex !== -1) {
+					brandFound = true;
+					return {
+						...med,
+						brands: currentBrands.filter((_, i) => i !== brandIndex)
+					};
+				}
+			}
+			return med;
+		});
+
+		if (!medicineFound) {
+			return errorResponse('Medicine not found', 404);
+		}
+
+		if (!brandFound) {
+			return errorResponse('Brand not found', 404);
+		}
+
+		// Update the row
+		await updateItem(
+			TABLES.DOCTOR_ITEMS,
+			{ doctor_id: doctorId, item_type: 'M' },
+			'SET #items = :items, updated_at = :updated_at',
+			{
+				':items': updatedItems,
+				':updated_at': new Date().toISOString()
+			},
+			{
+				'#items': 'items'
+			}
+		);
+
+		const updatedMedicine = updatedItems.find(m => m.id === medicineId);
+		return successResponse(updatedMedicine);
+	} catch (error) {
+		console.error('Delete brand error:', error);
 		return errorResponse('Internal server error', 500);
 	}
 }
@@ -703,14 +852,19 @@ export async function createVisitHandler(event) {
 			investigationsToDo: Array.isArray(investigationsToDo) ? investigationsToDo : [],
 			prescriptions: prescriptions.map(p => {
 				const med = medicineMap.get(p.medicineId);
-				return med ? { 
+				// Always include prescription, even if medicine was deleted
+				return { 
+					id: p.medicineId, // Always include the id
+					name: med?.name || 'Unknown Medicine',
+					brands: med?.brands || [],
+					isDeleted: med?.isDeleted || false,
 					...med, 
 					brand: p.brand || '',
 					dosage: p.dosage || '',
 					duration: p.duration || '',
 					durationUnit: p.durationUnit || 'weeks'
-				} : null;
-			}).filter(Boolean),
+				};
+			}),
 			referralLetter: generateReferralLetter ? {
 				referralDoctorName: referralDoctorName || '',
 				referralLetterBody: referralLetterBody || ''
@@ -1028,14 +1182,20 @@ export async function getPatientHandler(event) {
 				weightReadings: Array.isArray(v.weightReadings) ? v.weightReadings : [],
 				prescriptions: (v.prescriptions || []).map(p => {
 					const med = medicineMap.get(p.medicine_id);
-					return med ? { 
+					// Always include prescription, even if medicine was deleted
+					// This preserves id for lookups and ensures prescriptions aren't lost
+					return { 
+						id: p.medicine_id, // Always include the id
+						name: med?.name || 'Unknown Medicine',
+						brands: med?.brands || [],
+						isDeleted: med?.isDeleted || false,
 						...med, 
 						brand: p.brand || '',
 						dosage: p.dosage || '',
 						duration: p.duration || '',
 						durationUnit: p.durationUnit || 'weeks'
-					} : null;
-				}).filter(Boolean),
+					};
+				}),
 				referralLetter: v.referralLetter || null
 			}));
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../auth/AuthContext.jsx';
-import { apiCreateVisit, apiUpdateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiCreateInvestigation } from '../../api.js';
+import { apiCreateVisit, apiUpdateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiDeleteMedicine, apiDeleteBrand, apiCreateInvestigation } from '../../api.js';
 import PrescriptionModal from './PrescriptionModal.jsx';
 import ReferralLetterModal from './ReferralLetterModal.jsx';
 import DrugHistory from './DrugHistory.jsx';
@@ -177,6 +177,8 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [newMedicineBrands, setNewMedicineBrands] = useState('');
 	const [creatingMedicine, setCreatingMedicine] = useState(false);
 	const [addingBrandToMedicineId, setAddingBrandToMedicineId] = useState(null);
+	const [deletingMedicineId, setDeletingMedicineId] = useState(null);
+	const [deletingBrand, setDeletingBrand] = useState(null); // { medicineId, brand }
 	const [showCreateInvestigation, setShowCreateInvestigation] = useState(false);
 	const [newInvestigationName, setNewInvestigationName] = useState('');
 	const [newInvestigationCategory, setNewInvestigationCategory] = useState('');
@@ -660,6 +662,47 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		}
 	}
 
+	async function handleDeleteMedicine(medicineId, medicineName) {
+		if (!confirm(`Are you sure you want to delete "${medicineName}"? This will hide it from the medicine list but won't affect existing prescriptions.`)) {
+			return;
+		}
+		setDeletingMedicineId(medicineId);
+		setError('');
+		try {
+			await apiDeleteMedicine(token, medicineId);
+			// Notify parent to remove the medicine from the list
+			if (onMedicineCreated) {
+				// Pass a special flag to indicate deletion
+				onMedicineCreated({ id: medicineId, isDeleted: true }, true);
+			}
+			setMessage(`Medicine "${medicineName}" deleted successfully!`);
+		} catch (err) {
+			setError('Failed to delete medicine: ' + err.message);
+		} finally {
+			setDeletingMedicineId(null);
+		}
+	}
+
+	async function handleDeleteBrand(medicineId, brand) {
+		if (!confirm(`Are you sure you want to delete the brand "${brand}"?`)) {
+			return;
+		}
+		setDeletingBrand({ medicineId, brand });
+		setError('');
+		try {
+			const updatedMedicine = await apiDeleteBrand(token, { medicineId, brand });
+			// Notify parent to update the medicine in the list
+			if (onMedicineCreated) {
+				onMedicineCreated(updatedMedicine, true);
+			}
+			setMessage(`Brand "${brand}" deleted successfully!`);
+		} catch (err) {
+			setError('Failed to delete brand: ' + err.message);
+		} finally {
+			setDeletingBrand(null);
+		}
+	}
+
 	async function handleCreateInvestigation() {
 		if (!newInvestigationName.trim()) {
 			setError('Investigation name is required');
@@ -937,9 +980,11 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		const q = medQuery.toLowerCase().trim();
 		// Get medicine IDs that are in allergies (medicine type)
 		const allergyMedicineIds = getAllergyMedicineIds(allergies);
+		// Filter out medicines with missing name property (defensive check) and deleted medicines
+		const validMedicines = medicines.filter(m => m && m.name && !m.isDeleted);
 		const filtered = q 
-			? medicines.filter(m => m.name.toLowerCase().includes(q))
-			: medicines;
+			? validMedicines.filter(m => m.name.toLowerCase().includes(q))
+			: validMedicines;
 		// Filter out only medicines that are in allergies (allow duplicate selections)
 		return filtered.filter(m => !allergyMedicineIds.includes(m.id));
 	}
@@ -1135,6 +1180,11 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				medicines: selectedMedicines.map(m => {
 					const med = medicines.find(med => med.id === m.id);
 					return { 
+						// Ensure id is always preserved from selectedMedicines (m.id)
+						// even if medicine lookup fails (deleted medicine edge case)
+						id: m.id,
+						name: med?.name || 'Unknown Medicine',
+						brands: med?.brands || [],
 						...med, 
 						brand: m.brand || '', 
 						dosage: m.dosage || '',
@@ -4823,14 +4873,47 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																		</span>
 																	)}
 																</div>
-																<span style={{ 
-																	fontSize: '14px',
-																	color: '#667eea',
-																	transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-																	transition: 'transform 0.2s'
-																}}>
-																	▼
-																</span>
+																<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+																	{/* Delete medicine button */}
+																	<button
+																		type="button"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			handleDeleteMedicine(m.id, m.name);
+																		}}
+																		disabled={deletingMedicineId === m.id}
+																		title="Delete medicine"
+																		style={{
+																			padding: '4px 8px',
+																			border: 'none',
+																			background: 'transparent',
+																			color: '#dc2626',
+																			fontSize: '16px',
+																			cursor: deletingMedicineId === m.id ? 'not-allowed' : 'pointer',
+																			opacity: deletingMedicineId === m.id ? 0.5 : 1,
+																			borderRadius: '4px',
+																			transition: 'all 0.2s'
+																		}}
+																		onMouseEnter={(e) => {
+																			if (deletingMedicineId !== m.id) {
+																				e.target.style.background = '#fee2e2';
+																			}
+																		}}
+																		onMouseLeave={(e) => {
+																			e.target.style.background = 'transparent';
+																		}}
+																	>
+																		{deletingMedicineId === m.id ? '...' : '🗑️'}
+																	</button>
+																	<span style={{ 
+																		fontSize: '14px',
+																		color: '#667eea',
+																		transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+																		transition: 'transform 0.2s'
+																	}}>
+																		▼
+																	</span>
+																</div>
 															</div>
 															
 															{/* Expanded content - Brand selection */}
@@ -4850,37 +4933,71 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																	{brands.length > 0 && (
 																		<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
 																			{brands.map((brand, idx) => (
-																				<button
-																					key={idx}
-																					type="button"
-																					onClick={(e) => {
-																						e.stopPropagation();
-																						addMedicineWithBrand(m.id, brand);
-																					}}
-																					style={{
-																						padding: '8px 14px',
-																						border: '1px solid #c7d2fe',
-																						borderRadius: '6px',
-																						background: '#f0f4ff',
-																						color: '#667eea',
-																						fontSize: '13px',
-																						fontWeight: 500,
-																						cursor: 'pointer',
-																						transition: 'all 0.2s'
-																					}}
-																					onMouseEnter={(e) => {
-																						e.target.style.background = '#667eea';
-																						e.target.style.color = 'white';
-																						e.target.style.borderColor = '#667eea';
-																					}}
-																					onMouseLeave={(e) => {
-																						e.target.style.background = '#f0f4ff';
-																						e.target.style.color = '#667eea';
-																						e.target.style.borderColor = '#c7d2fe';
-																					}}
-																				>
-																					{brand}
-																				</button>
+																				<div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+																					<button
+																						type="button"
+																						onClick={(e) => {
+																							e.stopPropagation();
+																							addMedicineWithBrand(m.id, brand);
+																						}}
+																						style={{
+																							padding: '8px 14px',
+																							border: '1px solid #c7d2fe',
+																							borderRadius: '6px 0 0 6px',
+																							background: '#f0f4ff',
+																							color: '#667eea',
+																							fontSize: '13px',
+																							fontWeight: 500,
+																							cursor: 'pointer',
+																							transition: 'all 0.2s'
+																						}}
+																						onMouseEnter={(e) => {
+																							e.target.style.background = '#667eea';
+																							e.target.style.color = 'white';
+																							e.target.style.borderColor = '#667eea';
+																						}}
+																						onMouseLeave={(e) => {
+																							e.target.style.background = '#f0f4ff';
+																							e.target.style.color = '#667eea';
+																							e.target.style.borderColor = '#c7d2fe';
+																						}}
+																					>
+																						{brand}
+																					</button>
+																					<button
+																						type="button"
+																						onClick={(e) => {
+																							e.stopPropagation();
+																							handleDeleteBrand(m.id, brand);
+																						}}
+																						disabled={deletingBrand?.medicineId === m.id && deletingBrand?.brand === brand}
+																						title="Delete brand"
+																						style={{
+																							padding: '8px 8px',
+																							border: '1px solid #fca5a5',
+																							borderLeft: 'none',
+																							borderRadius: '0 6px 6px 0',
+																							background: '#fef2f2',
+																							color: '#dc2626',
+																							fontSize: '12px',
+																							cursor: (deletingBrand?.medicineId === m.id && deletingBrand?.brand === brand) ? 'not-allowed' : 'pointer',
+																							opacity: (deletingBrand?.medicineId === m.id && deletingBrand?.brand === brand) ? 0.5 : 1,
+																							transition: 'all 0.2s'
+																						}}
+																						onMouseEnter={(e) => {
+																							if (!(deletingBrand?.medicineId === m.id && deletingBrand?.brand === brand)) {
+																								e.target.style.background = '#dc2626';
+																								e.target.style.color = 'white';
+																							}
+																						}}
+																						onMouseLeave={(e) => {
+																							e.target.style.background = '#fef2f2';
+																							e.target.style.color = '#dc2626';
+																						}}
+																					>
+																						×
+																					</button>
+																				</div>
 																			))}
 																		</div>
 																	)}

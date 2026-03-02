@@ -6,6 +6,8 @@ import {
 	medicinesHandler,
 	createMedicineHandler,
 	addBrandToMedicineHandler,
+	deleteMedicineHandler,
+	deleteBrandHandler,
 	investigationsHandler,
 	createInvestigationHandler,
 	createVisitHandler,
@@ -83,6 +85,28 @@ export async function handler(event) {
 			if (method === 'POST') {
 				return await addBrandToMedicineHandler(event);
 			}
+			// Delete brand from medicine: DELETE /api/medicines/:medicineId/brands (with brand in body)
+			if (method === 'DELETE') {
+				// Extract medicineId from path
+				const brandPathMatch = path.match(/^\/api\/medicines\/([^\/]+)\/brands$/) || path.match(/^\/medicines\/([^\/]+)\/brands$/);
+				if (brandPathMatch) {
+					if (!event.pathParameters) {
+						event.pathParameters = {};
+					}
+					event.pathParameters.medicineId = decodeURIComponent(brandPathMatch[1]);
+					return await deleteBrandHandler(event);
+				}
+			}
+		}
+
+		// Delete medicine: DELETE /api/medicines/:medicineId
+		const medicineDeleteMatch = path.match(/^\/api\/medicines\/([^\/]+)$/) || path.match(/^\/medicines\/([^\/]+)$/);
+		if (medicineDeleteMatch && method === 'DELETE') {
+			if (!event.pathParameters) {
+				event.pathParameters = {};
+			}
+			event.pathParameters.medicineId = decodeURIComponent(medicineDeleteMatch[1]);
+			return await deleteMedicineHandler(event);
 		}
 
 		if (path === '/api/investigations' || path === '/investigations') {

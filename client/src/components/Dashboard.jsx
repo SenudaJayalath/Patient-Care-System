@@ -62,8 +62,14 @@ export default function Dashboard() {
 						investigations={investigations} 
 						onMedicineCreated={(newMed, isUpdate) => {
 							if (isUpdate) {
-								// Update existing medicine
-								setMedicines(medicines.map(m => m.id === newMed.id ? newMed : m));
+								if (newMed.isDeleted) {
+									// Mark medicine as deleted but keep it in the list for displaying selected/history items
+									// The dropdown will filter it out, but it remains available for lookup
+									setMedicines(medicines.map(m => m.id === newMed.id ? { ...m, isDeleted: true } : m));
+								} else {
+									// Update existing medicine (merge with existing to preserve all properties)
+									setMedicines(medicines.map(m => m.id === newMed.id ? { ...m, ...newMed } : m));
+								}
 							} else {
 								// Add new medicine
 								setMedicines([...medicines, newMed]);

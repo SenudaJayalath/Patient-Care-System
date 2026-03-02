@@ -53,6 +53,30 @@ export async function apiAddBrandToMedicine(token, { medicineId, brand }) {
 	return await res.json();
 }
 
+export async function apiDeleteMedicine(token, medicineId) {
+	const res = await fetch(`${API_BASE}/api/medicines/${medicineId}`, {
+		method: 'DELETE',
+		headers: {
+			Authorization: `Bearer ${token}`
+		}
+	});
+	if (!res.ok) throw new Error('Failed to delete medicine');
+	return await res.json();
+}
+
+export async function apiDeleteBrand(token, { medicineId, brand }) {
+	const res = await fetch(`${API_BASE}/api/medicines/${medicineId}/brands`, {
+		method: 'DELETE',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ brand })
+	});
+	if (!res.ok) throw new Error('Failed to delete brand');
+	return await res.json();
+}
+
 export async function apiGetInvestigations(token) {
 	const res = await fetch(`${API_BASE}/api/investigations`, {
 		headers: { Authorization: `Bearer ${token}` }
