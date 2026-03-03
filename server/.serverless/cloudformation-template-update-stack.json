@@ -183,7 +183,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/doctor-visit-logger/dev/1772432625764-2026-03-02T06:23:45.764Z/doctor-visit-logger.zip"
+          "S3Key": "serverless/doctor-visit-logger/dev/1772557962425-2026-03-03T17:12:42.425Z/doctor-visit-logger.zip"
         },
         "Handler": "src/lambda/index.handler",
         "Runtime": "nodejs18.x",
@@ -210,14 +210,14 @@
         "ApiLogGroup"
       ]
     },
-    "ApiLambdaVersionpxDxMFYMHKWbjoPZIBhiDT8MW4Kd3JDQGcGuaYYkDI": {
+    "ApiLambdaVersionpKPrltbE0NPrqYfrAY0ez2IBQ10sWa6Mis4nks": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ApiLambdaFunction"
         },
-        "CodeSha256": "GRG83Bp1bZcnfaqEFZPEkcTONVeKm7WLFBiz8beNEzI="
+        "CodeSha256": "YaIIpRf3nDA5211jeeWF4dHUJEWLfc7kJNFeXRfjRAY="
       }
     },
     "ApiGatewayResourceProxyVar": {
@@ -423,7 +423,7 @@
         "ApiLambdaPermissionApiGateway"
       ]
     },
-    "ApiGatewayDeployment1772432621233": {
+    "ApiGatewayDeployment1772557949245": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
         "RestApiId": {
@@ -678,7 +678,7 @@
     "ApiLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ApiLambdaVersionpxDxMFYMHKWbjoPZIBhiDT8MW4Kd3JDQGcGuaYYkDI"
+        "Ref": "ApiLambdaVersionpKPrltbE0NPrqYfrAY0ez2IBQ10sWa6Mis4nks"
       },
       "Export": {
         "Name": "sls-doctor-visit-logger-dev-ApiLambdaFunctionQualifiedArn"

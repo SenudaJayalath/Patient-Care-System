@@ -679,8 +679,10 @@ export async function createVisitHandler(event) {
 				updateFields.push('phone_number = :phone_number');
 				updateValues[':phone_number'] = phoneNumber || '';
 			}
-			if (nic !== undefined && nic !== finalNic) {
-				// Can't change NIC (it's the primary key), so ignore
+			if (nic !== undefined) {
+				// NIC is a regular attribute (not part of primary key), so it can be updated
+				updateFields.push('nic = :nic');
+				updateValues[':nic'] = nic || null;
 			}
 			if (gender !== undefined) {
 				updateFields.push('gender = :gender');
@@ -715,7 +717,8 @@ export async function createVisitHandler(event) {
 			const updatedPatient = await getItem(TABLES.PATIENTS, { doctor_id: doctorId, patient_id: finalPatientId });
 			return successResponse({ 
 				patient: { 
-					nic: finalNic, 
+					patientId: finalPatientId,
+					nic: updatedPatient?.nic || nic || null, 
 					name: updatedPatient?.name || name, 
 					birthday: updatedPatient?.birthday || birthday || null,
 					phoneNumber: updatedPatient?.phone_number || phoneNumber || '',
