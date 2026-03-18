@@ -102,14 +102,29 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				padding-left: 20px;
 				margin: 8px 0;
 			}
-			.treatment-list.two-columns {
-				column-count: 2;
-				column-gap: 15px;
-			}
 			.treatment-list li {
 				margin-bottom: 4px;
 				line-height: 1.4;
 				break-inside: avoid;
+			}
+			.investigation-results {
+				margin-bottom: 8px;
+				font-size: 15px;
+				line-height: 1.5;
+			}
+			.investigation-results .inv-label {
+				font-weight: 600;
+			}
+			.two-column-grid {
+				display: flex;
+				gap: 10px;
+			}
+			.two-column-grid .treatment-col {
+				flex: 1;
+				min-width: 0;
+			}
+			.two-column-grid .treatment-list {
+				margin-top: 0;
 			}
 			.notes-section {
 				margin-top: 12px;
@@ -145,26 +160,72 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 			}
 		</style>
 	`;
-	const medicinesList = medicines.length
-		? medicines.map((m, idx) => {
+	const formatMedicine = (m) => {
 		const dosage = m.dosage ? ` ${escapeHtml(m.dosage)}` : '';
 		const duration = m.duration && m.durationUnit 
 			? m.durationUnit === 'sos' 
 				? ` ${escapeHtml(m.duration)} SOS`
 				: ` for ${escapeHtml(m.duration)} ${escapeHtml(m.durationUnit === 'weeks' ? 'weeks' : m.durationUnit === 'days' ? 'days' : 'months')}`
 			: m.durationUnit === 'sos' ? ' SOS' : '';
-			const displayName = m.brand && m.brand.trim()
-				? `${escapeHtml(m.brand)}${dosage}${duration}`
-				: `${escapeHtml(m.name)}${dosage}${duration}`;
-			return `<li>${displayName}</li>`;
-		}).join('')
+		const displayName = m.brand && m.brand.trim()
+			? `${escapeHtml(m.brand)}${dosage}${duration}`
+			: `${escapeHtml(m.name)}${dosage}${duration}`;
+		return `<li>${displayName}</li>`;
+	};
+
+	// Split medicines into two columns when count exceeds 8
+	// Each column holds max 8 medicines, but if total > 16, divide evenly
+	const MAX_PER_COLUMN = 8;
+	const useTwoColumns = medicines.length > MAX_PER_COLUMN;
+	
+	let treatmentHtml = '';
+	if (medicines.length > 0) {
+		if (useTwoColumns) {
+			// Split evenly into two columns (e.g. 18 → 9+9, 12 → 6+6)
+			const half = Math.ceil(medicines.length / 2);
+			const leftMeds = medicines.slice(0, half);
+			const rightMeds = medicines.slice(half);
+			const leftHtml = leftMeds.map(formatMedicine).join('');
+			const rightHtml = rightMeds.map(formatMedicine).join('');
+			treatmentHtml = `
+				<div class="section-title">Treatment:</div>
+				<div class="two-column-grid">
+					<div class="treatment-col">
+						<ol class="treatment-list" start="1">
+							${leftHtml}
+						</ol>
+					</div>
+					<div class="treatment-col">
+						<ol class="treatment-list" start="${half + 1}">
+							${rightHtml}
+						</ol>
+					</div>
+				</div>`;
+		} else {
+			const medicinesList = medicines.map(formatMedicine).join('');
+			treatmentHtml = `
+				<div class="section-title">Treatment:</div>
+				<ol class="treatment-list">
+					${medicinesList}
+				</ol>`;
+		}
+	}
+	
+	// Build investigation results from THIS visit's date only (those with a result)
+	const visitDateStr = visit.date ? new Date(visit.date).toISOString().slice(0, 10) : '';
+	const investigationResultItems = (investigations || []).filter(inv => {
+		if (!inv.investigationName || !inv.result || !inv.result.trim()) return false;
+		// Only include investigations from the same day as this visit
+		if (!inv.date) return false;
+		const invDateStr = new Date(inv.date).toISOString().slice(0, 10);
+		return invDateStr === visitDateStr;
+	});
+	const investigationResultsHtml = investigationResultItems.length > 0
+		? `<div class="investigation-results">
+			<span class="inv-label">Investigations:</span> ${investigationResultItems.map(inv => `${escapeHtml(inv.investigationName)}- ${escapeHtml(inv.result)}`).join(', ')}
+		</div>`
 		: '';
-	
-	// Determine if we need two columns based on number of medicines
-	// A5 can fit approximately 12-15 medicines in single column depending on text length
-	// Use two columns if more than 12 medicines
-	const useTwoColumns = medicines.length > 12;
-	
+
 	const dateStr = new Date(visit.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 	
 	// Parse allergies - can be JSON string or plain text
@@ -192,19 +253,28 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 	
 	const allergiesHtml = allergiesList.length > 0
 		? `<div class="allergies-section">
-			<div class="allergies-label">Allergies:</div>
-			<div>${allergiesList.join(', ')}</div>
+			<span class="allergies-label">Allergies:</span> ${allergiesList.join(', ')}
 		</div>`
 		: '';
 		
-	// Get most recent weight reading
-	const mostRecentWeight = weightReadings && Array.isArray(weightReadings) && weightReadings.length > 0 
-		? weightReadings[0] 
-		: null;
+	// Get blood pressure reading for THIS visit's date only
+	const visitDay = visit.date ? new Date(visit.date).toISOString().slice(0, 10) : '';
+	const bpForVisit = (visit.bloodPressureReadings || []).filter(bp => {
+		if (!bp.reading || !bp.date) return false;
+		return new Date(bp.date).toISOString().slice(0, 10) === visitDay;
+	});
+	const mostRecentBP = bpForVisit.length > 0 ? bpForVisit[bpForVisit.length - 1] : null;
+
+	// Get weight reading for THIS visit's date only
+	const weightForVisit = (weightReadings || []).filter(w => {
+		if (!w.weight || !w.date) return false;
+		return new Date(w.date).toISOString().slice(0, 10) === visitDay;
+	});
+	const mostRecentWeight = weightForVisit.length > 0 ? weightForVisit[weightForVisit.length - 1] : null;
 		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
-		? `<div class="investigations-section">
-			<strong>${escapeHtml(investigationsToDo.join(', '))}</strong>
+		? `<div class="allergies-section" style="margin-top: 2px; padding-top: 0; border-top: none;">
+			<span class="allergies-label">Investigations to do:</span> ${escapeHtml(investigationsToDo.join(', '))}
 		</div>`
 		: '';
 	return `
@@ -228,9 +298,9 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 					<div class="past-medical-history">
 						<div class="past-medical-history-label">Past Medical History:</div>
 						<div>${escapeHtml(patient.pastMedicalHistory)}</div>
-					${visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+					${mostRecentBP ? `
 						<div class="blood-pressure-section">
-							Blood Pressure: ${escapeHtml(visit.bloodPressureReadings[0].reading)}
+							Blood Pressure: ${escapeHtml(mostRecentBP.reading)}
 						</div>
 					` : ''}
 					${mostRecentWeight ? `
@@ -239,11 +309,11 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 						</div>
 					` : ''}
 					</div>
-				` : (visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0) || mostRecentWeight ? `
+				` : mostRecentBP || mostRecentWeight ? `
 					<div class="past-medical-history">
-						${visit.bloodPressureReadings && Array.isArray(visit.bloodPressureReadings) && visit.bloodPressureReadings.length > 0 ? `
+						${mostRecentBP ? `
 							<div class="blood-pressure-section">
-								Blood Pressure: ${escapeHtml(visit.bloodPressureReadings[0].reading)}
+								Blood Pressure: ${escapeHtml(mostRecentBP.reading)}
 							</div>
 						` : ''}
 						${mostRecentWeight ? `
@@ -253,12 +323,11 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 						` : ''}
 					</div>
 				` : ''}
-			</div>				<div class="divider"></div>					${medicines.length > 0 ? `<div class="section-title">Treatment:</div>
-					<ol class="treatment-list${useTwoColumns ? ' two-columns' : ''}">
-						${medicinesList}
-					</ol>` : ''}
+			</div>				<div class="divider"></div>					${investigationResultsHtml}
+					${treatmentHtml}
 					
 					${allergiesHtml}
+					${investigationsToDoHtml}
 					
 					<div class="date-signature-container">
 						<div class="date-line">${dateStr}</div>
@@ -267,8 +336,6 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 							<div class="doctor-credentials">Consultant Physician</div>
 						</div>
 					</div>
-					
-					${investigationsToDoHtml}
 				</div>
 			</body>
 		</html>

@@ -1101,8 +1101,8 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 					presentingComplaint: presentingComplaint.trim(),
 					examinationFindings: examinationFindings.trim(),
 					investigations: investigations, // Array of investigation results
-					bloodPressureReadings: bloodPressureReadings, // Array of blood pressure readings
-					weightReadings: weightReadings, // Array of weight readings
+					bloodPressureReadings: bloodPressureReadings.filter(bp => !bp.isHistorical), // Only this visit's readings
+					weightReadings: weightReadings.filter(w => !w.isHistorical), // Only this visit's readings
 					investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 					notes: doctorsNotes.trim(),
 					generateReferralLetter: generateReferralLetter,
@@ -1196,8 +1196,8 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 				presentingComplaint: presentingComplaint.trim(),
 				examinationFindings: examinationFindings.trim(),
 				investigations: investigations, // Array of investigation results
-				bloodPressureReadings: showBloodPressureHistory ? bloodPressureReadings : [], // Array of blood pressure readings
-				weightReadings: showWeightHistory ? weightReadings : [], // Array of weight readings
+				bloodPressureReadings: showBloodPressureHistory ? bloodPressureReadings.filter(bp => !bp.isHistorical) : [], // Only this visit's readings
+				weightReadings: showWeightHistory ? weightReadings.filter(w => !w.isHistorical) : [], // Only this visit's readings
 				investigationsToDo: showInvestigationsToDo ? investigationsToDo : [],
 				referralLetter: generateReferralLetter ? {
 					referralDoctorName: referralDoctorName.trim(),
