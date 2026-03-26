@@ -739,8 +739,8 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		const medicine = medicines.find(m => m.id === medicineId);
 		const nameLower = medicine ? medicine.name.toLowerCase() : '';
 		const usesMicrogram = nameLower.includes('thyroxin') || 
-			nameLower.includes('fluticasone') || nameLower.includes('salmetero') || nameLower.includes('salmeterol') ||
-			nameLower.includes('budesonide') || nameLower.includes('fometerol') || nameLower.includes('formoterol');
+			nameLower.includes('fluticasone and salmeterol') ||
+			nameLower.includes('budesonide and formetarol');
 		
 		setSelectedMedicines([...selectedMedicines, { 
 			id: medicineId,
