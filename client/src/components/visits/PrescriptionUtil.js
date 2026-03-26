@@ -305,7 +305,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 					` : ''}
 					${mostRecentWeight ? `
 						<div class="weight-section">
-							Weight: ${escapeHtml(mostRecentWeight.weight)}
+							Weight: ${escapeHtml(mostRecentWeight.weight)} Kg
 						</div>
 					` : ''}
 					</div>
@@ -318,7 +318,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 						` : ''}
 						${mostRecentWeight ? `
 							<div class="weight-section">
-								Weight: ${escapeHtml(mostRecentWeight.weight)}
+								Weight: ${escapeHtml(mostRecentWeight.weight)} Kg
 							</div>
 						` : ''}
 					</div>

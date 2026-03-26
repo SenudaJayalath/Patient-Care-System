@@ -735,15 +735,18 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		// Use timestamp to create unique keys for duplicate medicines
 		const uniqueKey = `${medicineId}_${Date.now()}`;
 		
-		// Check if medicine is thyroxine - add µg symbol to dosage
+		// Check if medicine uses µg dosage (thyroxine, fluticasone/salmeterol, budesonide/formoterol)
 		const medicine = medicines.find(m => m.id === medicineId);
-		const isThyroxine = medicine && medicine.name.toLowerCase().includes('thyroxin');
+		const nameLower = medicine ? medicine.name.toLowerCase() : '';
+		const usesMicrogram = nameLower.includes('thyroxin') || 
+			nameLower.includes('fluticasone') || nameLower.includes('salmetero') || nameLower.includes('salmeterol') ||
+			nameLower.includes('budesonide') || nameLower.includes('fometerol') || nameLower.includes('formoterol');
 		
 		setSelectedMedicines([...selectedMedicines, { 
 			id: medicineId,
 			uniqueKey: uniqueKey, // For React key and removal
 			brand: brand.trim(), 
-			dosage: isThyroxine ? 'µg' : '',
+			dosage: usesMicrogram ? 'µg' : '',
 			duration: '',
 			durationUnit: 'months'
 		}]);
@@ -4136,7 +4139,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																				background: w.isHistorical ? '#fff' : '#fef9c3'
 																			}}>
 																				<td style={{ padding: '10px 12px', color: '#1e293b' }}>
-																					{w.weight}
+																					{w.weight} Kg
 																				</td>
 																				<td style={{ padding: '10px 12px', color: '#64748b' }}>
 																					{new Date(w.date).toLocaleDateString('en-GB')}
@@ -4165,7 +4168,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 																	setWeightDateInput(new Date().toISOString().split('T')[0]);
 																}
 															}}
-															placeholder="e.g., 70 kg"
+															placeholder="e.g., 70"
 															style={{ 
 																width: '100%',
 																padding: '12px 14px', 
