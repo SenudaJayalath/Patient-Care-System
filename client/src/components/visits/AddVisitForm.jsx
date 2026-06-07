@@ -237,8 +237,22 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [searchName, searchNic, searchPhone, searchBirthday]);
 
+		// Track which patient the "Add New Visit" sections were last populated from,
+		// so refreshing the same patient's lookup (e.g. after saving patient history
+		// or drug history) does NOT wipe unsaved entries on the right-hand side.
+		const populatedPatientIdRef = useRef(null);
+
 		// Auto-populate medicines from most recent visit when patient is found
 		useEffect(() => {
+			const currentPatientId = patientLookup?.patientId ?? null;
+			// Only repopulate when the selected patient actually changes. A refresh of
+			// the same patient (savePatientInfo, drug history save, post-visit refresh)
+			// must preserve any unsaved prescription / investigation / BP / weight entries.
+			if (populatedPatientIdRef.current === currentPatientId) {
+				return;
+			}
+			populatedPatientIdRef.current = currentPatientId;
+
 			if (patientLookup && patientLookup.visits && patientLookup.visits.length > 0) {
 				// Get the most recent visit (first in the array, already sorted by date DESC)
 				const mostRecentVisit = patientLookup.visits[0];
