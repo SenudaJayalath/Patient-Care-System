@@ -274,7 +274,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
 		? `<div class="allergies-section" style="margin-top: 2px; padding-top: 0; border-top: none;">
-			<span class="allergies-label">Investigations to do:</span> ${escapeHtml(investigationsToDo.join(', '))}
+			<span class="allergies-label">Investigations to be Done:</span> <strong>${escapeHtml(investigationsToDo.join(', '))}</strong>
 		</div>`
 		: '';
 	return `
