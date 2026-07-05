@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { apiGetDrugHistory, apiUpdateDrugHistory, apiCreateMedicine, apiAddBrandToMedicine } from '../../api.js';
 
-export default function DrugHistory({ patientId, medicines, onMedicineCreated }) {
+export default function DrugHistory({ patientId, medicines, onMedicineCreated, onDrugsChange, initialDrugs }) {
 	const { token } = useAuth();
+	// Deferred mode: no patientId yet (new patient registration). Drugs are held
+	// locally and reported to the parent via onDrugsChange; the parent persists them
+	// after the patient is created. No server load/save happens in this mode.
+	const isDeferred = !patientId;
 	const [drugs, setDrugs] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [editing, setEditing] = useState(false);
@@ -30,7 +34,9 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 	// Load drug history when patientId changes
 	useEffect(() => {
 		if (!patientId) {
-			setDrugs([]);
+			// Deferred mode: seed once from any drugs already collected by the parent,
+			// then let local state drive the section (no fetch).
+			setDrugs(initialDrugs || []);
 			setLoading(false);
 			return;
 		}
@@ -55,7 +61,18 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 		})();
 
 		return () => { isMounted = false; };
+		// initialDrugs intentionally excluded: seed once, then local state is source of truth
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [patientId, token]);
+
+	// In deferred mode, report drug changes up to the parent so they can be saved
+	// once the new patient is created.
+	useEffect(() => {
+		if (isDeferred && onDrugsChange) {
+			onDrugsChange(drugs);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [drugs, isDeferred]);
 
 	// Filter medicines based on query
 	const filteredMedicines = medicines.filter(m => 
@@ -215,10 +232,6 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 		setMessage('');
 	}
 
-	if (!patientId) {
-		return null;
-	}
-
 	return (
 		<div className="card" style={{ 
 			marginBottom: 20,
@@ -265,7 +278,7 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 						</span>
 					</h3>
 				</div>
-				{!editing && (
+				{!editing && !isDeferred && (
 					<button
 						type="button"
 						onClick={() => setEditing(true)}
@@ -328,10 +341,10 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 						</div>
 					)}
 
-					{editing && (
+					{(editing || isDeferred) && (
 						<div style={{ marginBottom: 16 }}>
 							<div style={{ marginBottom: 12 }}>
-								<label style={{ 
+								<label style={{
 									display: 'block', 
 									marginBottom: 6, 
 									fontSize: '13px', 
@@ -792,7 +805,7 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 													</div>
 												)}
 											</div>
-											{editing && (
+											{(editing || isDeferred) && (
 												<button
 													type="button"
 													onClick={() => handleRemoveDrug(index)}
@@ -812,9 +825,9 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 												</button>
 											)}
 										</div>
-										{editing ? (
+										{(editing || isDeferred) ? (
 											<div>
-												<label style={{ 
+												<label style={{
 													display: 'block',
 													fontSize: '11px',
 													fontWeight: 600,
@@ -857,10 +870,23 @@ export default function DrugHistory({ patientId, medicines, onMedicineCreated })
 						</div>
 					)}
 
-					{editing && (
-						<div style={{ 
-							display: 'flex', 
-							gap: 8, 
+					{isDeferred && (
+						<div style={{
+							marginTop: 16,
+							paddingTop: 12,
+							borderTop: '2px solid #e0f2fe',
+							fontSize: '12px',
+							color: '#64748b',
+							fontStyle: 'italic'
+						}}>
+							This drug history will be saved when you register the patient.
+						</div>
+					)}
+
+					{editing && !isDeferred && (
+						<div style={{
+							display: 'flex',
+							gap: 8,
 							marginTop: 16,
 							paddingTop: 16,
 							borderTop: '2px solid #e0f2fe'

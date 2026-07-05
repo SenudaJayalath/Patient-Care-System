@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../auth/AuthContext.jsx';
-import { apiCreateVisit, apiUpdateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiDeleteMedicine, apiDeleteBrand, apiCreateInvestigation } from '../../api.js';
+import { apiCreateVisit, apiUpdateVisit, apiSearchPatients, apiGetPatientById, apiCreateMedicine, apiAddBrandToMedicine, apiDeleteMedicine, apiDeleteBrand, apiCreateInvestigation, apiUpdateDrugHistory } from '../../api.js';
 import PrescriptionModal from './PrescriptionModal.jsx';
 import ReferralLetterModal from './ReferralLetterModal.jsx';
 import DrugHistory from './DrugHistory.jsx';
@@ -104,6 +104,9 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const [gender, setGender] = useState('');
 	const [pastMedicalHistory, setPastMedicalHistory] = useState('');
 	const [familyHistory, setFamilyHistory] = useState('');
+	// Drug history collected during NEW patient registration (patientId not yet
+	// assigned). Saved after the patient is created in onSubmit.
+	const [newPatientDrugs, setNewPatientDrugs] = useState([]);
 	// Allergies: array of {type: 'medicine'|'other', medicineId?: string, medicineName?: string, text?: string}
 	const [allergies, setAllergies] = useState([]);
 	const [noKnownAllergies, setNoKnownAllergies] = useState(false); // Explicit "no allergies" flag
@@ -445,6 +448,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setGender('');
 		setPastMedicalHistory('');
 		setFamilyHistory('');
+		setNewPatientDrugs([]);
 		setAllergies([]);
 		setAllergyInput('');
 		setAllergyMedQuery('');
@@ -535,6 +539,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setGender('');
 		setPastMedicalHistory('');
 		setFamilyHistory('');
+		setNewPatientDrugs([]);
 		setAllergies([]);
 		setAllergyInput('');
 		setAllergyMedQuery('');
@@ -1233,6 +1238,16 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 			setShowModal(false);
 			setVisitSaved(true);
 			setEditingVisitId(null); // Reset editing mode after successful save
+			// Persist drug history collected during new patient registration.
+			// The visit is already saved at this point, so a failure here is logged
+			// rather than surfaced as a visit-save failure.
+			if (!editingVisitId && res.patient?.patientId && newPatientDrugs.length > 0) {
+				try {
+					await apiUpdateDrugHistory(token, res.patient.patientId, newPatientDrugs);
+				} catch (drugErr) {
+					console.error('Failed to save drug history for new patient:', drugErr);
+				}
+			}
 			// Refresh patient lookup to show updated history
 			if (res.patient?.patientId) {
 				await selectPatient(res.patient.patientId);
@@ -3383,6 +3398,16 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 												</div>
 											</div>
 										</div>
+									</div>
+									{/* Drug History (Other Doctors) - collected during registration, saved with the new patient */}
+									<div style={{ marginBottom: 32 }}>
+										<DrugHistory
+											patientId={null}
+											medicines={medicines}
+											onMedicineCreated={onMedicineCreated}
+											initialDrugs={newPatientDrugs}
+											onDrugsChange={setNewPatientDrugs}
+										/>
 									</div>
 								</>
 							)}
