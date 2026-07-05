@@ -138,6 +138,10 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 	const investigationResultContainerRef = useRef(null);
 	const investigationResultDropdownRef = useRef(null);
 	const [doctorsNotes, setDoctorsNotes] = useState('');
+	// One-way mirror: presenting complaint seeds doctor's notes until the doctor
+	// edits the notes directly. Once notes are edited independently, mirroring stops
+	// (so notes are never overwritten), and editing notes never affects the complaint.
+	const notesEditedManuallyRef = useRef(false);
 	const [generateReferralLetter, setGenerateReferralLetter] = useState(false);
 	const [referralDoctorName, setReferralDoctorName] = useState('');
 	const [referralLetterBody, setReferralLetterBody] = useState('');
@@ -490,7 +494,10 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setInvestigationsToDo(lastVisit.investigationsToDo || []);
 		setShowInvestigationsToDo((lastVisit.investigationsToDo || []).length > 0);
 		setDoctorsNotes(lastVisit.notes || '');
-		
+		// Editing an existing visit: notes already stand on their own, so don't let
+		// complaint edits overwrite them.
+		notesEditedManuallyRef.current = true;
+
 		// Repopulate medicines with uniqueKey
 		const medicinesWithKeys = lastVisit.medicines.map((m, index) => ({
 			id: m.id,
@@ -551,6 +558,7 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 		setWeightDateInput('');
 		setShowWeightHistory(false);
 		setDoctorsNotes('');
+		notesEditedManuallyRef.current = false; // Fresh form: re-enable complaint→notes mirror
 		setGenerateReferralLetter(false);
 		setReferralDoctorName('');
 		setReferralLetterBody('');
@@ -2552,7 +2560,45 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 														</div>
 													</div>
 												)}
-												
+
+												{/* Examination Findings */}
+												{isExpanded && v.examinationFindings && (
+													<div style={{
+														marginBottom: 16,
+														padding: '14px',
+														background: 'rgba(255, 255, 255, 0.8)',
+														borderRadius: '8px',
+														border: '1px solid #fbbf24',
+														animation: 'slideDown 0.3s ease-out'
+													}}>
+														<div style={{
+															display: 'flex',
+															alignItems: 'center',
+															gap: 8,
+															marginBottom: 8
+														}}>
+															<span style={{ fontSize: '16px' }}>🩺</span>
+															<span style={{
+																fontSize: '12px',
+																fontWeight: 600,
+																color: '#92400e',
+																textTransform: 'uppercase',
+																letterSpacing: '0.5px'
+															}}>
+																Examination Findings
+															</span>
+														</div>
+														<div style={{
+															fontSize: '14px',
+															color: '#374151',
+															lineHeight: '1.6',
+															whiteSpace: 'pre-wrap'
+														}}>
+															{v.examinationFindings}
+														</div>
+													</div>
+												)}
+
 												{/* Action Buttons */}
 												<div style={{ display: 'grid', gridTemplateColumns: v.referralLetter ? '1fr 1fr' : '1fr', gap: 8 }}>
 												<button
@@ -3414,7 +3460,14 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 										<textarea
 											id="presentingComplaint"
 											value={presentingComplaint}
-											onChange={e => setPresentingComplaint(e.target.value)}
+											onChange={e => {
+												const value = e.target.value;
+												setPresentingComplaint(value);
+												// Mirror into doctor's notes until the doctor edits notes directly
+												if (!notesEditedManuallyRef.current) {
+													setDoctorsNotes(value);
+												}
+											}}
 											placeholder="Enter the patient's presenting complaint..."
 											rows={3}
 											style={{ 
@@ -4532,7 +4585,12 @@ export default function AddVisitForm({ medicines, investigations: availableInves
 										<textarea
 											id="doctorsNotes"
 											value={doctorsNotes}
-											onChange={e => setDoctorsNotes(e.target.value)}
+											onChange={e => {
+												// Doctor editing notes directly stops the complaint→notes
+												// mirror and never flows back to the complaint field.
+												notesEditedManuallyRef.current = true;
+												setDoctorsNotes(e.target.value);
+											}}
 											placeholder="Enter doctor's notes for this visit..."
 											rows={3}
 											style={{ 
