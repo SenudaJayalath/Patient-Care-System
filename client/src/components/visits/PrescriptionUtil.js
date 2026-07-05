@@ -154,6 +154,19 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 				font-size: 12px;
 				text-align: center;
 			}
+			.branding-footer {
+				margin-top: 30px;
+				padding-top: 8px;
+				border-top: 1px solid #999;
+				font-size: 11px;
+				text-align: center;
+				color: #555;
+				letter-spacing: 0.3px;
+			}
+			.branding-footer .brand-name {
+				font-weight: bold;
+				color: #333;
+			}
 			@media print {
 				body { padding: 0; }
 				.prescription-container { padding: 8mm; padding-top: 3mm; }
@@ -273,7 +286,7 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 	const mostRecentWeight = weightForVisit.length > 0 ? weightForVisit[weightForVisit.length - 1] : null;
 		
 	const investigationsToDoHtml = investigationsToDo && Array.isArray(investigationsToDo) && investigationsToDo.length > 0
-		? `<div class="allergies-section" style="margin-top: 2px; padding-top: 0; border-top: none;">
+		? `<div class="allergies-section" style="margin-top: 12px; padding-top: 0; border-top: none;">
 			<span class="allergies-label">Investigations to be Done:</span> <strong>${escapeHtml(investigationsToDo.join(', '))}</strong>
 		</div>`
 		: '';
@@ -335,6 +348,9 @@ export function buildPrescriptionHTML({ doctorName, patient, visit, medicines, n
 							<div class="doctor-name">Dr. ${escapeHtml(doctorName || 'Doctor')}</div>
 							<div class="doctor-credentials">Consultant Physician</div>
 						</div>
+					</div>
+					<div class="branding-footer">
+						<span class="brand-name">Patient Management System by HashBaze</span> &middot; Contact: 0763994010
 					</div>
 				</div>
 			</body>
